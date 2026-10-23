@@ -13,7 +13,7 @@ use RuntimeException;
 class CollectionRequestCandidateFinder
 {
     /** @return array{candidates: list<array{id: int, name: string, similarity: float}>, truncated: bool} */
-    public function find(CollectionRequestMatchPerson $person, string $name): array
+    public function find(CollectionRequestMatchPerson $person, string $name, int $siteId): array
     {
         $name = Str::lower(Str::squish($name));
 
@@ -26,7 +26,7 @@ class CollectionRequestCandidateFinder
         $variants = $this->variants($name);
         $limit = max(1, (int) config('collection-matching.candidate_limit'));
 
-        return DB::transaction(function () use ($person, $variants, $limit): array {
+        return DB::transaction(function () use ($person, $variants, $limit, $siteId): array {
             $threshold = (string) config('collection-matching.candidate_similarity_threshold');
             DB::select("SELECT set_config('pg_trgm.similarity_threshold', ?, true), set_config('pg_trgm.word_similarity_threshold', ?, true)", [$threshold, $threshold]);
 
@@ -40,6 +40,7 @@ class CollectionRequestCandidateFinder
             }
 
             $results = $person->modelClass()::query()
+                ->whereHas('sites', fn (Builder $query): Builder => $query->whereKey($siteId))
                 ->select(['id', 'name'])
                 ->selectRaw('greatest('.implode(', ', $scores).') AS similarity', $bindings)
                 ->where(function (Builder $query) use ($variants): void {

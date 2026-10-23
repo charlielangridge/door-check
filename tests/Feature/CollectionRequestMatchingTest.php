@@ -7,7 +7,9 @@ use App\Jobs\MatchCollectionRequestChildJob;
 use App\Models\Adult;
 use App\Models\Child;
 use App\Models\CollectionRequest;
+use App\Models\Site;
 use App\Services\CollectionRequestCandidateFinder;
+use App\Services\CollectionRequestMatcher;
 use App\Settings\CollectionMatchingSettings;
 use Illuminate\Support\Facades\Concurrency;
 use Illuminate\Support\Facades\DB;
@@ -31,27 +33,30 @@ beforeEach(function (): void {
 });
 
 test('postgres discovers misspellings nicknames partial names and reversed names', function (string $name): void {
-    $adult = Adult::factory()->create(['name' => 'Elizabeth Smith']);
+    $site = Site::factory()->create();
+    $adult = Adult::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Elizabeth Smith']);
 
-    $result = resolve(CollectionRequestCandidateFinder::class)->find(CollectionRequestMatchPerson::Adult, $name);
+    $result = resolve(CollectionRequestCandidateFinder::class)->find(CollectionRequestMatchPerson::Adult, $name, $site->id);
 
     expect(array_column($result['candidates'], 'id'))->toContain($adult->id);
     expect($result['truncated'])->toBeFalse();
 })->with(['Elizabth Smth', 'Liz Smith', 'Liz', 'Smith Elizabeth']);
 
 test('postgres binds untrusted names without executing their contents', function (): void {
-    Adult::factory()->create(['name' => 'Robert Smith']);
+    $site = Site::factory()->create();
+    Adult::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Robert Smith']);
 
-    resolve(CollectionRequestCandidateFinder::class)->find(CollectionRequestMatchPerson::Adult, "Robert'); DROP TABLE adults; --");
+    resolve(CollectionRequestCandidateFinder::class)->find(CollectionRequestMatchPerson::Adult, "Robert'); DROP TABLE adults; --", $site->id);
 
     $this->assertDatabaseCount('adults', 1);
 });
 
 test('both matching jobs accept a unique related pair in either completion order', function (bool $childFirst): void {
-    $adult = Adult::factory()->create(['name' => 'Elizabeth Smith']);
-    $child = Child::factory()->create(['name' => 'Thomas Smith']);
+    $site = Site::factory()->create();
+    $adult = Adult::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Elizabeth Smith']);
+    $child = Child::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Thomas Smith']);
     $adult->children()->attach($child, ['relationship' => 'parent']);
-    $request = CollectionRequest::factory()->createQuietly(['requester_name_text' => 'Liz Smith', 'requested_child_text' => 'Tom Smith']);
+    $request = CollectionRequest::factory()->for($site)->createQuietly(['requester_name_text' => 'Liz Smith', 'requested_child_text' => 'Tom Smith']);
     Classification::fake(fn (ClassificationPrompt $prompt): array => array_fill_keys(array_keys($prompt->questions), new BooleanAnswer(0.97)))->preventStrayClassifications();
     $adultJob = new MatchCollectionRequestAdultJob($request->id);
     $childJob = new MatchCollectionRequestChildJob($request->id);
@@ -73,10 +78,11 @@ test('both matching jobs accept a unique related pair in either completion order
 })->with([false, true]);
 
 test('an individual match survives when the other person has no candidates', function (bool $childMatches): void {
+    $site = Site::factory()->create();
     $person = $childMatches
-        ? Child::factory()->create(['name' => 'Thomas Smith'])
-        : Adult::factory()->create(['name' => 'Thomas Smith']);
-    $request = CollectionRequest::factory()->createQuietly(['requester_name_text' => $childMatches ? 'ZZZZZZZZ' : 'Tom Smith', 'requested_child_text' => $childMatches ? 'Tom Smith' : 'ZZZZZZZZ']);
+        ? Child::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Thomas Smith'])
+        : Adult::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Thomas Smith']);
+    $request = CollectionRequest::factory()->for($site)->createQuietly(['requester_name_text' => $childMatches ? 'ZZZZZZZZ' : 'Tom Smith', 'requested_child_text' => $childMatches ? 'Tom Smith' : 'ZZZZZZZZ']);
     Classification::fake(fn (ClassificationPrompt $prompt): array => array_fill_keys(array_keys($prompt->questions), new BooleanAnswer(0.99)));
 
     app()->call([new MatchCollectionRequestAdultJob($request->id), 'handle']);
@@ -89,9 +95,10 @@ test('an individual match survives when the other person has no candidates', fun
 })->with([false, true]);
 
 test('independently identified people without a relationship require approval', function (): void {
-    $adult = Adult::factory()->create(['name' => 'Elizabeth Smith']);
-    $child = Child::factory()->create(['name' => 'Thomas Smith']);
-    $request = CollectionRequest::factory()->createQuietly(['requester_name_text' => 'Liz Smith', 'requested_child_text' => 'Tom Smith']);
+    $site = Site::factory()->create();
+    $adult = Adult::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Elizabeth Smith']);
+    $child = Child::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Thomas Smith']);
+    $request = CollectionRequest::factory()->for($site)->createQuietly(['requester_name_text' => 'Liz Smith', 'requested_child_text' => 'Tom Smith']);
     Classification::fake(fn (ClassificationPrompt $prompt): array => array_fill_keys(array_keys($prompt->questions), new BooleanAnswer(0.99)));
 
     app()->call([new MatchCollectionRequestAdultJob($request->id), 'handle']);
@@ -102,11 +109,12 @@ test('independently identified people without a relationship require approval', 
 });
 
 test('each individual must meet the stored threshold without rounding up', function (float $probability, float $threshold, CollectionRequestStatus $expected): void {
-    $adult = Adult::factory()->create(['name' => 'Elizabeth Smith']);
+    $site = Site::factory()->create();
+    $adult = Adult::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Elizabeth Smith']);
     $settings = resolve(CollectionMatchingSettings::class);
     $settings->automatic_matching_threshold = $threshold;
     $settings->save();
-    $request = CollectionRequest::factory()->createQuietly(['requester_name_text' => 'Liz Smith']);
+    $request = CollectionRequest::factory()->for($site)->createQuietly(['requester_name_text' => 'Liz Smith']);
     Classification::fake([['candidate_'.$adult->id => new BooleanAnswer($probability)]])->preventStrayClassifications();
 
     app()->call([new MatchCollectionRequestAdultJob($request->id), 'handle']);
@@ -123,12 +131,13 @@ test('each individual must meet the stored threshold without rounding up', funct
 ]);
 
 test('multiple qualifying related pairs remain ambiguous even if one scores higher', function (): void {
-    $adults = Adult::factory()->count(2)->create(['name' => 'Elizabeth Smith']);
-    $children = Child::factory()->count(2)->create(['name' => 'Thomas Smith']);
+    $site = Site::factory()->create();
+    $adults = Adult::factory()->hasAttached($site, [], 'sites')->count(2)->create(['name' => 'Elizabeth Smith']);
+    $children = Child::factory()->hasAttached($site, [], 'sites')->count(2)->create(['name' => 'Thomas Smith']);
     foreach ($adults as $index => $adult) {
         $adult->children()->attach($children[$index], ['relationship' => 'parent']);
     }
-    $request = CollectionRequest::factory()->createQuietly(['requester_name_text' => 'Liz Smith', 'requested_child_text' => 'Tom Smith']);
+    $request = CollectionRequest::factory()->for($site)->createQuietly(['requester_name_text' => 'Liz Smith', 'requested_child_text' => 'Tom Smith']);
     Classification::fake(fn (ClassificationPrompt $prompt): array => array_combine(array_keys($prompt->questions), [new BooleanAnswer(0.97), new BooleanAnswer(0.96)]));
 
     app()->call([new MatchCollectionRequestAdultJob($request->id), 'handle']);
@@ -140,9 +149,10 @@ test('multiple qualifying related pairs remain ambiguous even if one scores high
 });
 
 test('truncated discovery never automatically accepts a shortlisted person', function (): void {
+    $site = Site::factory()->create();
     config(['collection-matching.candidate_limit' => 1]);
-    Adult::factory()->count(2)->create(['name' => 'Elizabeth Smith']);
-    $request = CollectionRequest::factory()->createQuietly(['requester_name_text' => 'Liz Smith']);
+    Adult::factory()->hasAttached($site, [], 'sites')->count(2)->create(['name' => 'Elizabeth Smith']);
+    $request = CollectionRequest::factory()->for($site)->createQuietly(['requester_name_text' => 'Liz Smith']);
     Classification::fake(fn (ClassificationPrompt $prompt): array => array_fill_keys(array_keys($prompt->questions), new BooleanAnswer(0.99)));
 
     app()->call([new MatchCollectionRequestAdultJob($request->id), 'handle']);
@@ -151,7 +161,8 @@ test('truncated discovery never automatically accepts a shortlisted person', fun
 });
 
 test('empty registers produce no match without calling the provider or creating people', function (): void {
-    $request = CollectionRequest::factory()->createQuietly();
+    $site = Site::factory()->create();
+    $request = CollectionRequest::factory()->for($site)->createQuietly();
     Classification::fake()->preventStrayClassifications();
 
     app()->call([new MatchCollectionRequestAdultJob($request->id), 'handle']);
@@ -164,8 +175,9 @@ test('empty registers produce no match without calling the provider or creating 
 });
 
 test('completed individual matching is not repeated while the other job is pending', function (): void {
-    $adult = Adult::factory()->create(['name' => 'Elizabeth Smith']);
-    $request = CollectionRequest::factory()->createQuietly(['requester_name_text' => 'Liz Smith']);
+    $site = Site::factory()->create();
+    $adult = Adult::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Elizabeth Smith']);
+    $request = CollectionRequest::factory()->for($site)->createQuietly(['requester_name_text' => 'Liz Smith']);
     Classification::fake([['candidate_'.$adult->id => new BooleanAnswer(0.99)]])->preventStrayClassifications();
     $job = new MatchCollectionRequestAdultJob($request->id);
     app()->call($job->handle(...));
@@ -176,9 +188,10 @@ test('completed individual matching is not repeated while the other job is pendi
 });
 
 test('both jobs use the same saved threshold even when settings change between jobs', function (): void {
-    Adult::factory()->create(['name' => 'Elizabeth Smith']);
-    Child::factory()->create(['name' => 'Thomas Smith']);
-    $request = CollectionRequest::factory()->createQuietly(['requester_name_text' => 'Liz Smith', 'requested_child_text' => 'Tom Smith']);
+    $site = Site::factory()->create();
+    Adult::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Elizabeth Smith']);
+    Child::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Thomas Smith']);
+    $request = CollectionRequest::factory()->for($site)->createQuietly(['requester_name_text' => 'Liz Smith', 'requested_child_text' => 'Tom Smith']);
     Classification::fake(fn (ClassificationPrompt $prompt): array => array_fill_keys(array_keys($prompt->questions), new BooleanAnswer(0.96)));
     app()->call([new MatchCollectionRequestAdultJob($request->id), 'handle']);
     $settings = resolve(CollectionMatchingSettings::class);
@@ -191,9 +204,10 @@ test('both jobs use the same saved threshold even when settings change between j
 });
 
 test('provider connection failure leaves the other persons accepted match intact during retries and terminal failure', function (): void {
-    $adult = Adult::factory()->create(['name' => 'Elizabeth Smith']);
-    Child::factory()->create(['name' => 'Thomas Smith']);
-    $request = CollectionRequest::factory()->createQuietly(['requester_name_text' => 'Liz Smith', 'requested_child_text' => 'Tom Smith']);
+    $site = Site::factory()->create();
+    $adult = Adult::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Elizabeth Smith']);
+    Child::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Thomas Smith']);
+    $request = CollectionRequest::factory()->for($site)->createQuietly(['requester_name_text' => 'Liz Smith', 'requested_child_text' => 'Tom Smith']);
     $request->forceFill(['adult_id' => $adult->id, 'adult_match_status' => CollectionRequestStatus::Matched, 'adult_match_confidence' => 99.0])->save();
     Http::preventStrayRequests();
     Http::fake(['api.typesafe.ai/v1/systemone' => Http::failedConnection()]);
@@ -208,8 +222,9 @@ test('provider connection failure leaves the other persons accepted match intact
 });
 
 test('invalid provider probabilities are retryable instead of being treated as no match', function (float $probability): void {
-    $adult = Adult::factory()->create(['name' => 'Elizabeth Smith']);
-    $request = CollectionRequest::factory()->createQuietly(['requester_name_text' => 'Liz Smith']);
+    $site = Site::factory()->create();
+    $adult = Adult::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Elizabeth Smith']);
+    $request = CollectionRequest::factory()->for($site)->createQuietly(['requester_name_text' => 'Liz Smith']);
     Classification::fake([['candidate_'.$adult->id => new BooleanAnswer($probability)]])->preventStrayClassifications();
 
     expect(fn () => app()->call([new MatchCollectionRequestAdultJob($request->id), 'handle']))->toThrow(UnexpectedValueException::class);
@@ -218,8 +233,9 @@ test('invalid provider probabilities are retryable instead of being treated as n
 })->with([-0.1, 1.1, INF, NAN]);
 
 test('missing provider answers are retryable instead of being treated as no match', function (): void {
-    Adult::factory()->create(['name' => 'Elizabeth Smith']);
-    $request = CollectionRequest::factory()->createQuietly(['requester_name_text' => 'Liz Smith']);
+    $site = Site::factory()->create();
+    Adult::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Elizabeth Smith']);
+    $request = CollectionRequest::factory()->for($site)->createQuietly(['requester_name_text' => 'Liz Smith']);
     Classification::fake([new ClassificationResponse([], new TextUsage, new Meta('typesafe', 'jev-latest'))]);
 
     expect(fn () => app()->call([new MatchCollectionRequestAdultJob($request->id), 'handle']))->toThrow(InvalidArgumentException::class);
@@ -228,10 +244,11 @@ test('missing provider answers are retryable instead of being treated as no matc
 });
 
 test('a provider retry can recover without redoing the accepted person', function (): void {
-    $adult = Adult::factory()->create(['name' => 'Elizabeth Smith']);
-    $child = Child::factory()->create(['name' => 'Thomas Smith']);
+    $site = Site::factory()->create();
+    $adult = Adult::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Elizabeth Smith']);
+    $child = Child::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Thomas Smith']);
     $adult->children()->attach($child, ['relationship' => 'parent']);
-    $request = CollectionRequest::factory()->createQuietly(['requested_child_text' => 'Tom Smith']);
+    $request = CollectionRequest::factory()->for($site)->createQuietly(['requested_child_text' => 'Tom Smith']);
     $request->forceFill(['adult_id' => $adult->id, 'adult_match_status' => CollectionRequestStatus::Matched])->save();
     Http::preventStrayRequests();
     Http::fake(['api.typesafe.ai/v1/systemone' => Http::sequence()
@@ -247,8 +264,9 @@ test('a provider retry can recover without redoing the accepted person', functio
 });
 
 test('a late failure callback cannot undo completed individual matching', function (): void {
-    $adult = Adult::factory()->create(['name' => 'Elizabeth Smith']);
-    $request = CollectionRequest::factory()->createQuietly(['requester_name_text' => 'Liz Smith']);
+    $site = Site::factory()->create();
+    $adult = Adult::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Elizabeth Smith']);
+    $request = CollectionRequest::factory()->for($site)->createQuietly(['requester_name_text' => 'Liz Smith']);
     Classification::fake([['candidate_'.$adult->id => new BooleanAnswer(0.99)]]);
     $job = new MatchCollectionRequestAdultJob($request->id);
     app()->call($job->handle(...));
@@ -258,13 +276,115 @@ test('a late failure callback cannot undo completed individual matching', functi
     expect($request->refresh())->adult_id->toBe($adult->id)->adult_match_status->toBe(CollectionRequestStatus::Matched);
 });
 
+test('candidate discovery and JEV scoring exclude other sites before applying the shortlist limit', function (CollectionRequestMatchPerson $person): void {
+    $site = Site::factory()->create();
+    $elsewhere = Site::factory()->create();
+    $model = $person->modelClass();
+    $member = $model::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Elizabeth Smith']);
+    $outsiders = $model::factory()->count(3)->hasAttached($elsewhere, [], 'sites')->create(['name' => 'Elizabeth Smith']);
+    config(['collection-matching.candidate_limit' => 1]);
+    $request = CollectionRequest::factory()->for($site)->createQuietly([$person->nameColumn() => 'Liz Smith']);
+    Classification::fake(fn (ClassificationPrompt $prompt): array => array_fill_keys(array_keys($prompt->questions), new BooleanAnswer(0.99)))->preventStrayClassifications();
+
+    resolve(CollectionRequestMatcher::class)->match($request->id, $person);
+
+    expect($request->refresh()->getAttribute($person->idColumn()))->toBe($member->id);
+    expect($request->getAttribute($person->value.'_match_candidates'))->toHaveCount(1);
+    expect($request->getAttribute($person->value.'_candidates_truncated'))->toBeFalse();
+    Classification::assertClassified(fn (ClassificationPrompt $prompt): bool => array_keys($prompt->questions) === ['candidate_'.$member->id]);
+    foreach ($outsiders as $outsider) {
+        expect(array_column($request->getAttribute($person->value.'_match_candidates'), 'id'))->not->toContain($outsider->id);
+    }
+})->with(CollectionRequestMatchPerson::cases());
+
+test('people at other sites do not produce candidates or provider calls', function (): void {
+    $site = Site::factory()->create();
+    $elsewhere = Site::factory()->create();
+    Adult::factory()->hasAttached($elsewhere, [], 'sites')->create(['name' => 'Elizabeth Smith']);
+    Child::factory()->hasAttached($elsewhere, [], 'sites')->create(['name' => 'Thomas Smith']);
+    $request = CollectionRequest::factory()->for($site)->createQuietly(['requester_name_text' => 'Elizabeth Smith', 'requested_child_text' => 'Thomas Smith']);
+    Classification::fake()->preventStrayClassifications();
+
+    app()->call([new MatchCollectionRequestAdultJob($request->id), 'handle']);
+    app()->call([new MatchCollectionRequestChildJob($request->id), 'handle']);
+
+    expect($request->refresh())->status->toBe(CollectionRequestStatus::NoMatchFound)->adult_id->toBeNull()->requested_child_id->toBeNull();
+    Classification::assertNothingClassified();
+});
+
+test('detaching a candidate during JEV scoring requires approval with an explicit saved reason', function (CollectionRequestMatchPerson $person): void {
+    $site = Site::factory()->create();
+    $model = $person->modelClass();
+    $member = $model::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Elizabeth Smith']);
+    $request = CollectionRequest::factory()->for($site)->createQuietly([
+        $person->nameColumn() => 'Liz Smith',
+        $person === CollectionRequestMatchPerson::Adult ? 'child_match_status' : 'adult_match_status' => CollectionRequestStatus::NoMatchFound,
+    ]);
+    Classification::fake(function (ClassificationPrompt $prompt) use ($member, $site): array {
+        $member->sites()->detach($site);
+
+        return array_fill_keys(array_keys($prompt->questions), new BooleanAnswer(0.99));
+    })->preventStrayClassifications();
+
+    resolve(CollectionRequestMatcher::class)->match($request->id, $person);
+
+    expect($request->refresh())->status->toBe(CollectionRequestStatus::NeedsApproval);
+    expect($request->getAttribute($person->idColumn()))->toBeNull();
+    expect($request->getAttribute($person->value.'_site_membership_changed'))->toBeTrue();
+    expect($request->getAttribute($person->value.'_match_candidates'))->toHaveCount(1);
+    expect($request->approvalReasons())->toContain(ucfirst($person->value).': site membership changed while matching was in progress; staff must review the identification.');
+})->with(CollectionRequestMatchPerson::cases());
+
+test('finalising matching rechecks an earlier accepted person and completed requests retain their history', function (bool $detachBeforeCompletion): void {
+    $site = Site::factory()->create();
+    $adult = Adult::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Elizabeth Smith']);
+    $child = Child::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Thomas Smith']);
+    $adult->children()->attach($child, ['relationship' => 'parent']);
+    $request = CollectionRequest::factory()->for($site)->createQuietly(['requester_name_text' => 'Liz Smith', 'requested_child_text' => 'Tom Smith']);
+    Classification::fake(fn (ClassificationPrompt $prompt): array => array_fill_keys(array_keys($prompt->questions), new BooleanAnswer(0.99)))->preventStrayClassifications();
+    app()->call([new MatchCollectionRequestAdultJob($request->id), 'handle']);
+
+    if ($detachBeforeCompletion) {
+        $adult->sites()->detach($site);
+    }
+    app()->call([new MatchCollectionRequestChildJob($request->id), 'handle']);
+    if (! $detachBeforeCompletion) {
+        $adult->sites()->detach($site);
+        app()->call([new MatchCollectionRequestAdultJob($request->id), 'handle']);
+    }
+
+    $request->refresh();
+    expect($request->status)->toBe($detachBeforeCompletion ? CollectionRequestStatus::NeedsApproval : CollectionRequestStatus::Matched);
+    expect($request->adult_id)->toBe($detachBeforeCompletion ? null : $adult->id);
+    expect($request->adult_site_membership_changed)->toBe($detachBeforeCompletion);
+    expect($request->requested_child_id)->toBe($child->id);
+})->with([true, false]);
+
+test('the same adult child relationship can match at either shared site', function (): void {
+    $sites = Site::factory()->count(2)->create();
+    $adult = Adult::factory()->hasAttached($sites, [], 'sites')->create(['name' => 'Elizabeth Smith']);
+    $child = Child::factory()->hasAttached($sites, [], 'sites')->create(['name' => 'Thomas Smith']);
+    $adult->children()->attach($child, ['relationship' => 'parent']);
+    Classification::fake(fn (ClassificationPrompt $prompt): array => array_fill_keys(array_keys($prompt->questions), new BooleanAnswer(0.99)))->preventStrayClassifications();
+
+    foreach ($sites as $site) {
+        $request = CollectionRequest::factory()->for($site)->createQuietly(['requester_name_text' => 'Liz Smith', 'requested_child_text' => 'Tom Smith']);
+        app()->call([new MatchCollectionRequestAdultJob($request->id), 'handle']);
+        app()->call([new MatchCollectionRequestChildJob($request->id), 'handle']);
+
+        expect($request->fresh())->status->toBe(CollectionRequestStatus::Matched)->adult_id->toBe($adult->id)->requested_child_id->toBe($child->id);
+    }
+    $this->assertDatabaseCount('adult_child', 1);
+});
+
 test('concurrent adult and child jobs preserve both results and finish the request', function (): void {
     $databaseConfig = config('database.connections.pgsql');
     config(['database.connections.matching_concurrency' => $databaseConfig]);
-    $adult = Adult::factory()->connection('matching_concurrency')->create(['name' => 'Elizabeth Smith']);
-    $child = Child::factory()->connection('matching_concurrency')->create(['name' => 'Thomas Smith']);
+    $site = Site::factory()->connection('matching_concurrency')->create();
+    $adult = Adult::factory()->hasAttached($site, [], 'sites')->connection('matching_concurrency')->create(['name' => 'Elizabeth Smith']);
+    $child = Child::factory()->hasAttached($site, [], 'sites')->connection('matching_concurrency')->create(['name' => 'Thomas Smith']);
     $adult->children()->attach($child, ['relationship' => 'parent']);
-    $request = CollectionRequest::factory()->connection('matching_concurrency')->createQuietly(['requester_name_text' => 'Liz Smith', 'requested_child_text' => 'Tom Smith']);
+    $request = CollectionRequest::factory()->for($site)->connection('matching_concurrency')->createQuietly(['requester_name_text' => 'Liz Smith', 'requested_child_text' => 'Tom Smith']);
     $requestId = $request->id;
     $tasks = [];
 
@@ -301,6 +421,7 @@ test('concurrent adult and child jobs preserve both results and finish the reque
         $adult->children()->detach();
         $adult->delete();
         $child->delete();
+        $site->delete();
         DB::connection('matching_concurrency')->table('cache')->where('key', 'like', 'matching-barrier:'.$requestId.':%')->delete();
         DB::disconnect('matching_concurrency');
     }

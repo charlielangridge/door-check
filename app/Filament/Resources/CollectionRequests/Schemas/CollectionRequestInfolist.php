@@ -21,6 +21,7 @@ class CollectionRequestInfolist
                     ->columnSpanFull()
                     ->schema([
                         TextEntry::make('status')->badge(),
+                        TextEntry::make('site.name')->label('Site'),
                         TextEntry::make('approval_reasons')
                             ->label('Why approval is needed')
                             ->state(fn (CollectionRequest $record): array => $record->approvalReasons())
@@ -62,6 +63,12 @@ class CollectionRequestInfolist
             ->columns(2)
             ->columnSpanFull()
             ->schema([
+                TextEntry::make($prefix.'_site_membership_changed')
+                    ->label('Site membership warning')
+                    ->state('Site membership changed while matching was in progress; staff must review the identification.')
+                    ->visible(fn (CollectionRequest $record): bool => (bool) $record->getAttribute($prefix.'_site_membership_changed'))
+                    ->color('warning')
+                    ->columnSpanFull(),
                 TextEntry::make($prefix.'_match_status')->label('Matching status')->badge(),
                 TextEntry::make($prefix.'_match_confidence')->label('Highest JEV confidence')->numeric(decimalPlaces: 2)->suffix('%')->placeholder('Not available'),
                 TextEntry::make($relationship.'.name')->label('Matched name')->placeholder('Not matched'),

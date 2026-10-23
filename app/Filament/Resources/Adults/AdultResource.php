@@ -6,6 +6,7 @@ use App\Filament\Resources\Adults\Pages\CreateAdult;
 use App\Filament\Resources\Adults\Pages\EditAdult;
 use App\Filament\Resources\Adults\Pages\ListAdults;
 use App\Filament\Resources\Adults\RelationManagers\ChildrenRelationManager;
+use App\Filament\Resources\Adults\RelationManagers\SitesRelationManager;
 use App\Filament\Resources\Adults\Schemas\AdultForm;
 use App\Filament\Resources\Adults\Tables\AdultsTable;
 use App\Models\Adult;
@@ -37,6 +38,7 @@ class AdultResource extends Resource
     {
         return [
             ChildrenRelationManager::class,
+            SitesRelationManager::class,
         ];
     }
 

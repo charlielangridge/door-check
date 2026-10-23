@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\CollectionRequest;
+use App\Models\Site;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -20,6 +21,7 @@ class CollectionRequestFactory extends Factory
         return [
 
             'uuid' => $this->faker->uuid(),
+            'site_id' => Site::factory(),
             'requested_at' => $this->faker->dateTime(),
             'requester_name_text' => $this->faker->name(),
             'requested_child_text' => $this->faker->name(),

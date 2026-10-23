@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'uuid',
+    'site_id',
     'requested_at',
     'requester_name_text',
     'requested_child_text',
@@ -51,6 +52,8 @@ class CollectionRequest extends Model
         'child_match_candidates' => 'array',
         'adult_candidates_truncated' => 'boolean',
         'child_candidates_truncated' => 'boolean',
+        'adult_site_membership_changed' => 'boolean',
+        'child_site_membership_changed' => 'boolean',
         'requested_at' => 'datetime',
         'requester_latitude' => 'decimal:8',
         'requester_longitude' => 'decimal:8',
@@ -60,6 +63,12 @@ class CollectionRequest extends Model
     public function adult(): BelongsTo
     {
         return $this->belongsTo(Adult::class);
+    }
+
+    /** @return BelongsTo<Site, $this> */
+    public function site(): BelongsTo
+    {
+        return $this->belongsTo(Site::class);
     }
 
     /** @return BelongsTo<Child, $this> */
@@ -83,6 +92,11 @@ class CollectionRequest extends Model
             }
 
             $label = ucfirst($person->value);
+            if ($this->getAttribute($person->value.'_site_membership_changed')) {
+                $reasons[] = "{$label}: site membership changed while matching was in progress; staff must review the identification.";
+
+                continue;
+            }
             $candidates = $this->getAttribute($person->value.'_match_candidates') ?? [];
             $confidence = $this->getAttribute($person->value.'_match_confidence');
 

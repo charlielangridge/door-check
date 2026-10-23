@@ -49,7 +49,7 @@ class CollectionRequestMatcher
         }
 
         $name = $request->getAttribute($person->nameColumn());
-        $result = $this->finder->find($person, $name);
+        $result = $this->finder->find($person, $name, $request->site_id);
         $candidates = $this->scorer->score($name, $result['candidates']);
         usort($candidates, fn (array $left, array $right): int => ($right['confidence'] <=> $left['confidence']) ?: ($left['id'] <=> $right['id']));
 
@@ -107,6 +107,16 @@ class CollectionRequestMatcher
 
     private function saveOverallStatus(CollectionRequest $request): void
     {
+        foreach (CollectionRequestMatchPerson::cases() as $person) {
+            $id = $request->getAttribute($person->idColumn());
+
+            if ($id !== null && ! $this->isSiteMember($request, $person, $id)) {
+                $request->setAttribute($person->idColumn(), null);
+                $request->setAttribute($person->statusColumn(), CollectionRequestStatus::NeedsApproval);
+                $request->setAttribute($person->value.'_site_membership_changed', true);
+            }
+        }
+
         $statuses = [$request->adult_match_status, $request->child_match_status];
 
         if (in_array(CollectionRequestStatus::Pending, $statuses, true) || in_array(CollectionRequestStatus::Processing, $statuses, true)) {
@@ -123,5 +133,14 @@ class CollectionRequestMatcher
         }
 
         $request->save();
+    }
+
+    private function isSiteMember(CollectionRequest $request, CollectionRequestMatchPerson $person, int $personId): bool
+    {
+        return DB::table('site_'.$person->value)
+            ->where('site_id', $request->site_id)
+            ->where($person->value.'_id', $personId)
+            ->lockForUpdate()
+            ->first() !== null;
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\CollectionRequests\Schemas;
 
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 
@@ -12,6 +13,12 @@ class CollectionRequestForm
     {
         return $schema
             ->components([
+                Select::make('site_id')
+                    ->relationship('site', 'name')
+                    ->searchable()
+                    ->preload()
+                    ->required()
+                    ->disabled(fn (string $operation): bool => $operation !== 'create'),
                 DateTimePicker::make('requested_at')->required(),
                 TextInput::make('requester_name_text')->label('Requester Name')->required(),
                 TextInput::make('requested_child_text')->label('Requested Child')->required(),

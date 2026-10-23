@@ -48,6 +48,32 @@ Status: Implemented locally. Database migrations and live JEV verification remai
 - PostgreSQL needs the `pg_trgm` extension; the migration enables it and adds name indexes. Rollback removes those indexes and leaves the potentially shared extension installed.
 - Validate the provisional 95% threshold against representative real examples; automated fake-response tests do not establish JEV's real-world accuracy.
 
+## Site-specific requests: implemented locally
+
+These confirmed decisions extend the original matching scope and are implemented locally. The application database still requires the user's planned fresh migration and seed.
+
+- Each new collection request belongs to exactly one site.
+- Adult and child candidate discovery is restricted to people attached to the request's site. This replaces the original whole-register search scope; a perfect name match at another site is not eligible for automatic matching.
+- The eventual public entry point will be a site-specific collection link or QR code that fixes the request's site automatically.
+- Public collection UI is deferred. For this phase, the Filament create form is for manual testing and must require a site selection.
+- The request's site is fixed at creation. Testing a different site requires a new request; existing matching results must not be carried to another site.
+- The user will run a fresh migration and seed after implementation. Original create migrations may be edited directly; no legacy-request backfill or compatibility path is required. This does not authorize the agent to run a destructive database reset.
+- Adult–child relationships remain shared across sites. The existing relationship counts at any site where both people are members; no site-specific adult–child relationship is introduced.
+- Recheck site membership before accepting matching results. If a candidate was detached while matching was running, do not accept that identification automatically; require staff review and display the membership change as the reason.
+- Requests whose matching has already completed retain their recorded results when memberships subsequently change.
+- Filament staff continue to see requests across all sites. Add a Site column and site filter to the collection request table; this phase does not introduce staff-to-site assignments or site-based staff access restrictions.
+- The automatic matching threshold remains a shared global setting, with the value used retained on each request. No site-specific threshold overrides are introduced.
+- Block deletion of a site that has any collection requests, preserving the requests' site and history. Sites without collection requests may still be deleted.
+
+### Site-specific implementation and validation
+
+- Moved the Sites create migration before Collection Requests, added the required site foreign key with restricted deletion, and added unique, cascading site membership constraints. The original create migrations are used for the agreed fresh installation.
+- Site selection is required on the testing create form and disabled on edit; normal model updates also reject changing the site. Requests display their site and can be filtered by it across the shared staff list.
+- Candidate discovery applies site membership before shortlist limits and JEV scoring. Acceptance and overall finalisation recheck memberships under database locks in a consistent adult-then-child order.
+- Membership loss before completion clears the affected identification and records an explicit review reason. That warning remains visible even if the other matching job fails. Completed requests are not reprocessed when membership changes.
+- Validation: the full suite passed against a newly created, isolated PostgreSQL test database: 142 tests, 659 assertions, no skips. JEV responses were faked, including the concurrent matching test. Targeted PHPStan and Pint passed. Spec and standards reviews found no unresolved material issues after fixes.
+- No application database reset, live JEV call, public collection UI, or deployment was performed.
+
 ## Reference
 
 - [Decide with Jev](https://laravel-news.com/decide-with-jev-laravel-ai-that-answers-with-a-probability)

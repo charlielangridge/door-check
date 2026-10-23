@@ -6,6 +6,7 @@ use App\Filament\Resources\Children\Pages\CreateChild;
 use App\Filament\Resources\Children\Pages\EditChild;
 use App\Filament\Resources\Children\Pages\ListChildren;
 use App\Filament\Resources\Children\RelationManagers\AdultsRelationManager;
+use App\Filament\Resources\Children\RelationManagers\SitesRelationManager;
 use App\Filament\Resources\Children\Schemas\ChildForm;
 use App\Filament\Resources\Children\Tables\ChildrenTable;
 use App\Models\Child;
@@ -37,6 +38,7 @@ class ChildResource extends Resource
     {
         return [
             AdultsRelationManager::class,
+            SitesRelationManager::class,
         ];
     }
 

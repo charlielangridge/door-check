@@ -14,6 +14,8 @@ return new class extends Migration
         Schema::create('collection_request', function (Blueprint $table): void {
             $table->id();
             $table->uuid();
+            $table->foreignId('site_id')->constrained('sites')->restrictOnDelete();
+            $table->index('site_id');
             $table->dateTime('requested_at');
             $table->string('requester_name_text');
             $table->string('requested_child_text');

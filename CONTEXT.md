@@ -5,10 +5,13 @@ Matching collection requests to the adults and children recorded by staff.
 ## Language
 
 **Collection request**:
-A request naming the adult seeking to collect a child and the child they wish to collect.
+A request at exactly one site, naming the adult seeking to collect a child and the child they wish to collect. Its site is fixed when the request is created.
+
+**Site membership**:
+An association recording that an adult or child belongs to a site. A person can belong to more than one site.
 
 **Automatic match**:
-An identification of an adult or child accepted without staff confirmation because it meets the agreed confidence and ambiguity criteria. Each person can be matched independently.
+An identification of an adult or child belonging to the collection request's site, accepted without staff confirmation because it meets the agreed confidence and ambiguity criteria. Each person can be matched independently; people belonging only to other sites are excluded from automatic matching.
 
 **Matched collection request**:
 A collection request with accepted identifications for both people and an existing recorded relationship connecting them. Identifying two unrelated people does not make the overall request matched.
@@ -17,7 +20,7 @@ A collection request with accepted identifications for both people and an existi
 An adult or child identification with more than one candidate meeting the automatic matching threshold. Staff approval is required even when one candidate scores higher than the others.
 
 **Recorded adult-child relationship**:
-An existing association between an adult and a child in the register. The overall collection request can become matched only when this association exists.
+An existing association between an adult and a child, shared across sites. It counts towards a matched collection request at any site to which both people belong.
 
 **Match requiring approval**:
 A proposed identification that needs staff approval before it is accepted.

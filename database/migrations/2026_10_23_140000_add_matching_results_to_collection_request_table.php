@@ -19,10 +19,12 @@ return new class extends Migration
             $table->double('adult_match_confidence')->nullable();
             $table->json('adult_match_candidates')->nullable();
             $table->boolean('adult_candidates_truncated')->default(false);
+            $table->boolean('adult_site_membership_changed')->default(false);
             $table->string('child_match_status')->default('pending');
             $table->double('child_match_confidence')->nullable();
             $table->json('child_match_candidates')->nullable();
             $table->boolean('child_candidates_truncated')->default(false);
+            $table->boolean('child_site_membership_changed')->default(false);
         });
     }
 
@@ -40,6 +42,7 @@ return new class extends Migration
                     $person.'_match_confidence',
                     $person.'_match_candidates',
                     $person.'_candidates_truncated',
+                    $person.'_site_membership_changed',
                 ]);
             }
         });
