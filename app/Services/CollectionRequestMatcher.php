@@ -1,0 +1,127 @@
+<?php
+
+namespace App\Services;
+
+use App\CollectionRequestMatchPerson;
+use App\CollectionRequestStatus;
+use App\Models\CollectionRequest;
+use App\Settings\CollectionMatchingSettings;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
+use UnexpectedValueException;
+
+class CollectionRequestMatcher
+{
+    public function __construct(
+        private readonly CollectionRequestCandidateFinder $finder,
+        private readonly CollectionRequestNameScorer $scorer,
+    ) {}
+
+    public function match(int $requestId, CollectionRequestMatchPerson $person): void
+    {
+        $request = DB::transaction(function () use ($requestId, $person): ?CollectionRequest {
+            $request = CollectionRequest::query()->lockForUpdate()->find($requestId);
+
+            if (! $request || $request->status->isComplete() || $request->getAttribute($person->statusColumn())->isComplete()) {
+                return null;
+            }
+
+            if ($request->getAttribute($person->idColumn()) !== null) {
+                $request->setAttribute($person->statusColumn(), CollectionRequestStatus::Matched);
+                $this->saveOverallStatus($request);
+
+                return null;
+            }
+
+            $threshold = $request->matching_threshold ?? resolve(CollectionMatchingSettings::class)->automatic_matching_threshold;
+
+            throw_if(! is_finite($threshold) || $threshold <= 0 || $threshold > 100, UnexpectedValueException::class, 'The automatic matching threshold must be greater than zero and at most 100.');
+
+            $request->matching_threshold = $threshold;
+            $request->setAttribute($person->statusColumn(), CollectionRequestStatus::Processing);
+            $this->saveOverallStatus($request);
+
+            return $request;
+        });
+
+        if ($request === null) {
+            return;
+        }
+
+        $name = $request->getAttribute($person->nameColumn());
+        $result = $this->finder->find($person, $name);
+        $candidates = $this->scorer->score($name, $result['candidates']);
+        usort($candidates, fn (array $left, array $right): int => ($right['confidence'] <=> $left['confidence']) ?: ($left['id'] <=> $right['id']));
+
+        DB::transaction(function () use ($requestId, $person, $name, $candidates, $result): void {
+            $request = CollectionRequest::query()->lockForUpdate()->find($requestId);
+
+            if (! $request || $request->status->isComplete() || $request->getAttribute($person->statusColumn())->isComplete()) {
+                return;
+            }
+
+            if ($request->getAttribute($person->idColumn()) !== null) {
+                $request->setAttribute($person->statusColumn(), CollectionRequestStatus::Matched);
+                $this->saveOverallStatus($request);
+
+                return;
+            }
+
+            throw_if($request->getAttribute($person->nameColumn()) !== $name, UnexpectedValueException::class, 'The submitted name changed while matching was in progress.');
+
+            $qualified = array_values(array_filter($candidates, fn (array $candidate): bool => $candidate['confidence'] >= $request->matching_threshold));
+            $accepted = count($qualified) === 1 && ! $result['truncated'];
+            $prefix = $person->value;
+
+            $request->setAttribute($prefix.'_match_candidates', $candidates);
+            $request->setAttribute($prefix.'_match_confidence', $candidates[0]['confidence'] ?? null);
+            $request->setAttribute($prefix.'_candidates_truncated', $result['truncated']);
+
+            if ($accepted) {
+                $request->setAttribute($person->idColumn(), $qualified[0]['id']);
+                $status = CollectionRequestStatus::Matched;
+            } else {
+                $status = $candidates === [] ? CollectionRequestStatus::NoMatchFound : CollectionRequestStatus::NeedsApproval;
+            }
+
+            $request->setAttribute($person->statusColumn(), $status);
+            $this->saveOverallStatus($request);
+        });
+    }
+
+    public function fail(int $requestId, CollectionRequestMatchPerson $person): void
+    {
+        DB::transaction(function () use ($requestId, $person): void {
+            $request = CollectionRequest::query()->lockForUpdate()->find($requestId);
+
+            if (! $request || $request->status->isComplete() || $request->getAttribute($person->statusColumn())->isComplete()) {
+                return;
+            }
+
+            $request->setAttribute($person->statusColumn(), $request->getAttribute($person->idColumn()) !== null
+                ? CollectionRequestStatus::Matched
+                : CollectionRequestStatus::MatchingFailed);
+            $this->saveOverallStatus($request);
+        });
+    }
+
+    private function saveOverallStatus(CollectionRequest $request): void
+    {
+        $statuses = [$request->adult_match_status, $request->child_match_status];
+
+        if (in_array(CollectionRequestStatus::Pending, $statuses, true) || in_array(CollectionRequestStatus::Processing, $statuses, true)) {
+            $request->status = CollectionRequestStatus::Processing;
+        } elseif (in_array(CollectionRequestStatus::MatchingFailed, $statuses, true)) {
+            $request->status = CollectionRequestStatus::MatchingFailed;
+        } elseif ($request->adult_id !== null && $request->requested_child_id !== null) {
+            $related = $request->adult()->whereHas('children', fn (Builder $query): Builder => $query->whereKey($request->requested_child_id))->exists();
+            $request->status = $related ? CollectionRequestStatus::Matched : CollectionRequestStatus::NeedsApproval;
+        } elseif ($statuses === [CollectionRequestStatus::NoMatchFound, CollectionRequestStatus::NoMatchFound]) {
+            $request->status = CollectionRequestStatus::NoMatchFound;
+        } else {
+            $request->status = CollectionRequestStatus::NeedsApproval;
+        }
+
+        $request->save();
+    }
+}
