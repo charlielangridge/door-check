@@ -2,27 +2,34 @@
 
 namespace App\Filament\Resources\CollectionRequests\Tables;
 
+use App\Models\CollectionRequest;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class CollectionRequestsTable
 {
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['adult', 'requestedChild']))
             ->columns([
                 TextColumn::make('uuid')->label('UUID')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('requested_at')->dateTime(),
-                TextColumn::make('requester_name_text')->label('Requester Name'),
-                TextColumn::make('requested_child_text')->label('Requested Child'),
-                TextColumn::make('requester_latitude')->label('Requester Latitude'),
-                TextColumn::make('requester_longitude')->label('Requester Longitude'),
-                TextColumn::make('adult_id')->label('Adult ID'),
-                TextColumn::make('requested_child_id')->label('Requested Child ID'),
+                TextColumn::make('status')->badge()->sortable(),
+                TextColumn::make('requester_name_text')
+                    ->label('Requester Name')
+                    ->state(fn (CollectionRequest $record): ?string => $record->adult_id !== null ? $record->adult?->name : $record->requester_name_text),
+                TextColumn::make('requested_child_text')
+                    ->label('Requested Child')
+                    ->state(fn (CollectionRequest $record): ?string => $record->requested_child_id !== null ? $record->requestedChild?->name : $record->requested_child_text),
+                TextColumn::make('requester_latitude')->label('Requester Latitude')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('requester_longitude')->label('Requester Longitude')->toggleable(isToggledHiddenByDefault: true),
+
 
             ])
             ->filters([

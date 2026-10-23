@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\CollectionRequestMatchPerson;
 use App\CollectionRequestStatus;
 use App\Observers\CollectionRequestObserver;
 use Database\Factories\CollectionRequestFactory;
@@ -65,5 +66,51 @@ class CollectionRequest extends Model
     public function requestedChild(): BelongsTo
     {
         return $this->belongsTo(Child::class, 'requested_child_id');
+    }
+
+    /** @return list<string> */
+    public function approvalReasons(): array
+    {
+        if ($this->status !== CollectionRequestStatus::NeedsApproval) {
+            return [];
+        }
+
+        $reasons = [];
+
+        foreach (CollectionRequestMatchPerson::cases() as $person) {
+            if ($this->getAttribute($person->idColumn()) !== null) {
+                continue;
+            }
+
+            $label = ucfirst($person->value);
+            $candidates = $this->getAttribute($person->value.'_match_candidates') ?? [];
+            $confidence = $this->getAttribute($person->value.'_match_confidence');
+
+            if ($candidates === []) {
+                $reasons[] = "{$label}: no match was found; a person must be selected manually.";
+            } elseif ($this->matching_threshold === null) {
+                $reasons[] = "{$label}: no automatic matching threshold was recorded; review the candidate checks manually.";
+            } else {
+                $qualified = array_filter($candidates, fn (array $candidate): bool => $candidate['confidence'] >= $this->matching_threshold);
+
+                if (count($qualified) > 1) {
+                    $reasons[] = "{$label}: multiple candidates meet the {$this->matching_threshold}% threshold; a person must be selected manually.";
+                } elseif ($qualified === []) {
+                    $reasons[] = $confidence !== null
+                        ? "{$label}: the highest JEV confidence is {$confidence}%, below the {$this->matching_threshold}% threshold."
+                        : "{$label}: no candidate meets the {$this->matching_threshold}% threshold.";
+                }
+            }
+
+            if ($this->getAttribute($person->value.'_candidates_truncated')) {
+                $reasons[] = "{$label}: the candidate search was truncated, so automatic matching could not safely select a person.";
+            }
+        }
+
+        if ($this->adult_id !== null && $this->requested_child_id !== null && ! $this->adult?->children()->whereKey($this->requested_child_id)->exists()) {
+            $reasons[] = 'The matched child is not linked to the matched adult. Their relationship must be confirmed before collection can be approved.';
+        }
+
+        return $reasons ?: ['This request is still marked as needing approval. Review the saved matching results and the current adult–child relationship.'];
     }
 }
