@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('adult_child', function (Blueprint $table) {
+        Schema::create('adult_child', function (Blueprint $table): void {
             $table->foreignId('adult_id');
             $table->foreignId('child_id');
             $table->string('relationship');
