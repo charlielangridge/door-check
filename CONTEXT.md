@@ -10,6 +10,12 @@ A request at exactly one site, naming the adult seeking to collect a child and t
 **Site membership**:
 An association recording that an adult or child belongs to a site. A person can belong to more than one site.
 
+**Collection request evidence**:
+A requester photo and optional device location accompanying a collection request. The photo is required when the form has a working camera preview; a request can be submitted without it when camera access is unavailable, denied, or fails.
+
+**Requester photo**:
+A photo of the adult seeking to collect the child, supplied as collection request evidence.
+
 **Automatic match**:
 An identification of an adult or child belonging to the collection request's site, accepted without staff confirmation because it meets the agreed confidence and ambiguity criteria. Each person can be matched independently; people belonging only to other sites are excluded from automatic matching.
 

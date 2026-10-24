@@ -2,64 +2,56 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\CreateCollectionRequestRequest;
 use App\Models\CollectionRequest;
+use App\Models\Site;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class CollectionRequestController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(): void {}
+
+    public function create(Site $site): Response
     {
-        //
+        return Inertia::render('CollectionRequest/Create', [
+            'site' => [
+                'name' => $site->name,
+                'uuid' => $site->uuid,
+            ],
+        ]);
+
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    public function store(CreateCollectionRequestRequest $request, Site $site): RedirectResponse
     {
-        //
+        DB::transaction(function () use ($request, $site): void {
+            $collectionRequest = $site->collectionRequests()->create([
+                ...$request->safe()->only([
+                    'requester_name_text',
+                    'requested_child_text',
+                    'requester_latitude',
+                    'requester_longitude',
+                ]),
+                'requested_at' => now(),
+            ]);
+
+            if ($request->hasFile('photo')) {
+                $collectionRequest->addMediaFromRequest('photo')
+                    ->usingFileName('requester.'.$request->file('photo')->extension())
+                    ->toMediaCollection('requester_photo');
+            }
+        });
+
+        return to_route('collection-request.create', $site);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
-    }
+    public function show(CollectionRequest $collectionRequest): void {}
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(CollectionRequest $collectionRequest)
-    {
-        //
-    }
+    public function update(Request $request, CollectionRequest $collectionRequest): void {}
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(CollectionRequest $collectionRequest)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, CollectionRequest $collectionRequest)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(CollectionRequest $collectionRequest)
-    {
-        //
-    }
+    public function destroy(CollectionRequest $collectionRequest): void {}
 }

@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
 #[Fillable([
     'uuid',
@@ -28,12 +30,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 #[Table('collection_request')]
 #[ObservedBy([CollectionRequestObserver::class])]
-class CollectionRequest extends Model
+class CollectionRequest extends Model implements HasMedia
 {
     use BindsOnUuid, GeneratesUuid;
-
     /** @use HasFactory<CollectionRequestFactory> */
     use HasFactory;
+
+    use InteractsWithMedia;
 
     protected $attributes = [
         'status' => 'pending',
@@ -58,6 +61,14 @@ class CollectionRequest extends Model
         'requester_latitude' => 'decimal:8',
         'requester_longitude' => 'decimal:8',
     ];
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('requester_photo')
+            ->useDisk('local')
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp'])
+            ->singleFile();
+    }
 
     /** @return BelongsTo<Adult, $this> */
     public function adult(): BelongsTo

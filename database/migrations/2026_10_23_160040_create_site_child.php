@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('site_child', function (Blueprint $table) {
+        Schema::create('site_child', function (Blueprint $table): void {
             $table->foreignId('site_id')->constrained('sites')->cascadeOnDelete();
             $table->foreignId('child_id')->constrained('children')->cascadeOnDelete();
             $table->unique(['site_id', 'child_id']);

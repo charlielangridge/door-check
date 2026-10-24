@@ -17,6 +17,7 @@ class CollectionRequestsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->poll(10000)
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['adult', 'requestedChild', 'site']))
             ->columns([
                 TextColumn::make('uuid')->label('UUID')->toggleable(isToggledHiddenByDefault: true),

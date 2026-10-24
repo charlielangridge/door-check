@@ -10,14 +10,35 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\Image\Enums\Fit;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 #[Fillable([
     'name',
     'uuid',
 ])]
-class Site extends Model
+class Site extends Model implements HasMedia
 {
     use BindsOnUuid, GeneratesUuid;
+    use InteractsWithMedia;
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('logo')
+            ->registerMediaConversions(function (?Media $media = null): void {
+
+                $this->addMediaConversion('large')
+                    ->fit(Fit::Fill, 1000, 1000);
+                $this->addMediaConversion('medium')
+                    ->fit(Fit::Fill, 500, 500);
+                $this->addMediaConversion('small')->fit(Fit::Fill, 250, 250);
+                $this->addMediaConversion('thumb')->fit(Fit::Fill, 100, 100);
+
+            });
+
+    }
 
     /** @use HasFactory<SiteFactory> */
     use HasFactory;
