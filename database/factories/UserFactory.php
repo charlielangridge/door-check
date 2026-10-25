@@ -2,11 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Models\Permission;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Spatie\Permission\Models\Permission;
 
 /**
  * @extends Factory<User>

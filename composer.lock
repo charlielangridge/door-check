@@ -4,8 +4,78 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "bba9beba97cc4c70b6469ce451b68419",
+    "content-hash": "2c0ad0054fa372b61907dc465ad376e8",
     "packages": [
+        {
+            "name": "althinect/filament-spatie-roles-permissions",
+            "version": "v4.0.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Althinect/filament-spatie-roles-permissions.git",
+                "reference": "c8398333eb860f5245d27676cab9cbfbeb1b2afb"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Althinect/filament-spatie-roles-permissions/zipball/c8398333eb860f5245d27676cab9cbfbeb1b2afb",
+                "reference": "c8398333eb860f5245d27676cab9cbfbeb1b2afb",
+                "shasum": ""
+            },
+            "require": {
+                "filament/filament": "^4.0|^5.0",
+                "illuminate/support": "^9|^10|^11|^12.0|^13.0",
+                "php": "^8.2",
+                "spatie/laravel-permission": "^5.4|^6.0|^7.0|^8.0"
+            },
+            "require-dev": {
+                "larastan/larastan": "^2.9||^3.0|dev-l13",
+                "laravel/pint": "^1.14",
+                "orchestra/testbench": "^10.0.0||^9.0.0||^8.22.0|^11.0",
+                "pestphp/pest": "^4.0||^3.0||^2.34",
+                "pestphp/pest-plugin-arch": "^4.0||^3.0||^2.7",
+                "pestphp/pest-plugin-laravel": "^4.0||^3.0||^2.3",
+                "phpstan/extension-installer": "^1.3||^2.0",
+                "phpstan/phpstan-deprecation-rules": "^1.1||^2.0",
+                "phpstan/phpstan-phpunit": "^1.3||^2.0",
+                "spatie/laravel-ray": "^1.35"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "aliases": {
+                        "FilamentSpatieRolesPermissions": "Althinect\\FilamentSpatieRolesPermissions\\FilamentSpatieRolesPermissionsFacade"
+                    },
+                    "providers": [
+                        "Althinect\\FilamentSpatieRolesPermissions\\FilamentSpatieRolesPermissionsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Althinect\\FilamentSpatieRolesPermissions\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Althinect",
+                    "email": "opensource@althinect.com",
+                    "role": "Developer"
+                }
+            ],
+            "homepage": "https://github.com/althinect/filament-spatie-roles-permissions",
+            "keywords": [
+                "althinect",
+                "filament-spatie-roles-permissions"
+            ],
+            "support": {
+                "issues": "https://github.com/Althinect/filament-spatie-roles-permissions/issues",
+                "source": "https://github.com/Althinect/filament-spatie-roles-permissions/tree/v4.0.2"
+            },
+            "time": "2026-09-22T13:19:57+00:00"
+        },
         {
             "name": "anourvalar/eloquent-serialize",
             "version": "1.3.12",

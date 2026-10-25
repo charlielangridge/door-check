@@ -2,12 +2,12 @@
 
 use App\ChildCollectionState;
 use App\Models\CollectionRequest;
+use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
-use Spatie\Permission\Models\Role;
 
 test('super-admin receives the dedicated all-site permission while ordinary admin does not', function (): void {
     $this->seed(RolesAndPermissionsSeeder::class);

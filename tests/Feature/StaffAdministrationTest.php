@@ -5,6 +5,8 @@ use App\Filament\Resources\Sites\RelationManagers\StaffUsersRelationManager;
 use App\Filament\Resources\Sites\SiteResource;
 use App\Filament\Resources\Users\Pages\CreateUser;
 use App\Filament\Resources\Users\Pages\EditUser;
+use App\Models\Permission;
+use App\Models\Role;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\StaffVenueAssignments;
@@ -13,8 +15,6 @@ use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Livewire;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 
 beforeEach(function (): void {
     Filament::setCurrentPanel(Filament::getPanel('admin'));
