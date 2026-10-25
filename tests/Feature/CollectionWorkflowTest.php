@@ -19,7 +19,7 @@ function collectionWorkflowFixture(array $attributes = [], bool $related = true)
         $adult->children()->attach($child, ['relationship' => 'parent']);
     }
     $request = CollectionRequest::factory()->for($site)->createQuietly(['adult_id' => $adult->id, 'requested_child_id' => $child->id, ...$attributes]);
-    $staff = User::factory()->create(['staff_site_id' => $site->id]);
+    $staff = User::factory()->hasAttached($site, [], 'staffSites')->create();
     $staff->assignRole('staff');
 
     return compact('request', 'staff', 'adult', 'child', 'site');
@@ -29,7 +29,7 @@ test('a collection cannot skip review or preparation', function (string $action)
     $fixture = collectionWorkflowFixture();
 
     $this->actingAs($fixture['staff'])->withSession(['staff_signed_in_at' => now()->timestamp])
-        ->postJson(route('staff.collections.update', $fixture['request']), ['action' => $action, 'revision' => 1])
+        ->postJson(route('staff.collections.update', ['site' => $fixture['request']->site->uuid, 'collectionRequest' => $fixture['request']]), ['action' => $action, 'revision' => 1])
         ->assertUnprocessable()->assertJsonValidationErrors('action');
 
     expect($fixture['request']->fresh())->collection_state->toBe(ChildCollectionState::NeedsChecking)->collected_at->toBeNull();
@@ -40,7 +40,7 @@ test('a missing photo needs a verification reason before checks can be confirmed
     $fixture = collectionWorkflowFixture();
 
     $this->actingAs($fixture['staff'])->withSession(['staff_signed_in_at' => now()->timestamp])
-        ->postJson(route('staff.collections.update', $fixture['request']), ['action' => 'review', 'revision' => 1, 'identity_confirmed' => true])
+        ->postJson(route('staff.collections.update', ['site' => $fixture['request']->site->uuid, 'collectionRequest' => $fixture['request']]), ['action' => 'review', 'revision' => 1, 'identity_confirmed' => true])
         ->assertUnprocessable()->assertJsonValidationErrors('photo_verification_reason');
 
     expect($fixture['request']->fresh())->collection_state->toBe(ChildCollectionState::NeedsChecking)->adult_locked_at->toBeNull();
@@ -51,8 +51,8 @@ test('a relationship override needs an explanation and never creates a permanent
     $this->actingAs($fixture['staff'])->withSession(['staff_signed_in_at' => now()->timestamp]);
     $payload = ['action' => 'review', 'revision' => 1, 'identity_confirmed' => true, 'photo_verification_reason' => 'personally_known'];
 
-    $this->postJson(route('staff.collections.update', $fixture['request']), $payload)->assertUnprocessable()->assertJsonValidationErrors('relationship_override_reason');
-    $this->postJson(route('staff.collections.update', $fixture['request']), [...$payload, 'relationship_override_reason' => 'Confirmed collection with the parent in person.'])->assertOk();
+    $this->postJson(route('staff.collections.update', ['site' => $fixture['request']->site->uuid, 'collectionRequest' => $fixture['request']]), $payload)->assertUnprocessable()->assertJsonValidationErrors('relationship_override_reason');
+    $this->postJson(route('staff.collections.update', ['site' => $fixture['request']->site->uuid, 'collectionRequest' => $fixture['request']]), [...$payload, 'relationship_override_reason' => 'Confirmed collection with the parent in person.'])->assertOk();
 
     expect($fixture['request']->fresh())->collection_state->toBe(ChildCollectionState::Reviewed)
         ->relationship_override_reason->toBe('Confirmed collection with the parent in person.');
@@ -63,7 +63,7 @@ test('other reasons require their own notes', function (array $payload, string $
     $fixture = collectionWorkflowFixture();
 
     $this->actingAs($fixture['staff'])->withSession(['staff_signed_in_at' => now()->timestamp])
-        ->postJson(route('staff.collections.update', $fixture['request']), ['revision' => 1, ...$payload])
+        ->postJson(route('staff.collections.update', ['site' => $fixture['request']->site->uuid, 'collectionRequest' => $fixture['request']]), ['revision' => 1, ...$payload])
         ->assertUnprocessable()->assertJsonValidationErrors($field);
 
     expect($fixture['request']->fresh()->collection_state)->toBe(ChildCollectionState::NeedsChecking);
@@ -76,7 +76,7 @@ test('a stale action gets 409 and cannot overwrite the saved request', function 
     $fixture = collectionWorkflowFixture(['revision' => 4]);
 
     $this->actingAs($fixture['staff'])->withSession(['staff_signed_in_at' => now()->timestamp])
-        ->postJson(route('staff.collections.update', $fixture['request']), ['action' => 'cancel', 'revision' => 3, 'cancellation_reason' => 'adult_left'])
+        ->postJson(route('staff.collections.update', ['site' => $fixture['request']->site->uuid, 'collectionRequest' => $fixture['request']]), ['action' => 'cancel', 'revision' => 3, 'cancellation_reason' => 'adult_left'])
         ->assertConflict();
 
     expect($fixture['request']->fresh())->collection_state->toBe(ChildCollectionState::NeedsChecking)->revision->toBe(4);
@@ -87,8 +87,8 @@ test('staff cannot act on or inspect another venue request', function (): void {
     $other = CollectionRequest::factory()->createQuietly();
     $this->actingAs($fixture['staff'])->withSession(['staff_signed_in_at' => now()->timestamp]);
 
-    $this->getJson(route('staff.collections.data', $other))->assertNotFound();
-    $this->postJson(route('staff.collections.update', $other), ['action' => 'cancel', 'revision' => 1, 'cancellation_reason' => 'duplicate'])->assertNotFound();
+    $this->getJson(route('staff.collections.data', ['site' => $other->site->uuid, 'collectionRequest' => $other]))->assertNotFound();
+    $this->postJson(route('staff.collections.update', ['site' => $other->site->uuid, 'collectionRequest' => $other]), ['action' => 'cancel', 'revision' => 1, 'cancellation_reason' => 'duplicate'])->assertNotFound();
 
     expect($other->fresh()->collection_state)->toBe(ChildCollectionState::NeedsChecking);
 });
@@ -98,7 +98,7 @@ test('a child cannot be prepared for two requests', function (): void {
     CollectionRequest::factory()->for($fixture['site'])->createQuietly(['requested_child_id' => $fixture['child']->id, 'collection_state' => ChildCollectionState::Preparing]);
 
     $this->actingAs($fixture['staff'])->withSession(['staff_signed_in_at' => now()->timestamp])
-        ->postJson(route('staff.collections.update', $fixture['request']), ['action' => 'prepare', 'revision' => 1])
+        ->postJson(route('staff.collections.update', ['site' => $fixture['request']->site->uuid, 'collectionRequest' => $fixture['request']]), ['action' => 'prepare', 'revision' => 1])
         ->assertUnprocessable()->assertJsonValidationErrors(['action' => 'This child is already being prepared for another request. Cancel that preparation first.']);
 
     expect($fixture['request']->fresh()->collection_state)->toBe(ChildCollectionState::Reviewed);
@@ -110,7 +110,7 @@ test('the same-day collection block uses the venue date across the UTC boundary'
     CollectionRequest::factory()->for($fixture['site'])->createQuietly(['requested_child_id' => $fixture['child']->id, 'collection_state' => ChildCollectionState::Collected, 'collected_at' => '2026-06-30 23:10:00']);
 
     $this->actingAs($fixture['staff'])->withSession(['staff_signed_in_at' => now()->timestamp])
-        ->postJson(route('staff.collections.update', $fixture['request']), ['action' => 'prepare', 'revision' => 1])
+        ->postJson(route('staff.collections.update', ['site' => $fixture['request']->site->uuid, 'collectionRequest' => $fixture['request']]), ['action' => 'prepare', 'revision' => 1])
         ->assertUnprocessable()->assertJsonValidationErrors('action');
 
     expect($fixture['request']->fresh()->collection_state)->toBe(ChildCollectionState::Reviewed);
@@ -120,8 +120,8 @@ test('preparing and collecting save distinct audited handover stages', function 
     $fixture = collectionWorkflowFixture(['collection_state' => ChildCollectionState::Reviewed, 'reviewed_at' => now(), 'adult_locked_at' => now(), 'photo_verification_reason' => 'personally_known', 'unavailable_photos' => ['child', 'stored_adult', 'current_adult']]);
     $this->actingAs($fixture['staff'])->withSession(['staff_signed_in_at' => now()->timestamp]);
 
-    $this->postJson(route('staff.collections.update', $fixture['request']), ['action' => 'prepare', 'revision' => 1])->assertOk();
-    $this->postJson(route('staff.collections.update', $fixture['request']), ['action' => 'collect', 'revision' => $fixture['request']->fresh()->revision])->assertOk();
+    $this->postJson(route('staff.collections.update', ['site' => $fixture['request']->site->uuid, 'collectionRequest' => $fixture['request']]), ['action' => 'prepare', 'revision' => 1])->assertOk();
+    $this->postJson(route('staff.collections.update', ['site' => $fixture['request']->site->uuid, 'collectionRequest' => $fixture['request']]), ['action' => 'collect', 'revision' => $fixture['request']->fresh()->revision])->assertOk();
 
     expect($fixture['request']->fresh())->collection_state->toBe(ChildCollectionState::Collected)
         ->preparing_at->not->toBeNull()->collected_at->not->toBeNull();
@@ -134,15 +134,15 @@ test('a child already in the request cannot be selected for another entry', func
     $extra = CollectionRequest::factory()->for($fixture['site'])->createQuietly(['parent_request_id' => $fixture['request']->id, 'adult_id' => $fixture['adult']->id]);
 
     $this->actingAs($fixture['staff'])->withSession(['staff_signed_in_at' => now()->timestamp])
-        ->postJson(route('staff.collections.update', $extra), ['action' => 'review', 'revision' => 1, 'identity_confirmed' => true, 'child_id' => $fixture['child']->id, 'photo_verification_reason' => 'personally_known'])
+        ->postJson(route('staff.collections.update', ['site' => $extra->site->uuid, 'collectionRequest' => $extra]), ['action' => 'review', 'revision' => 1, 'identity_confirmed' => true, 'child_id' => $fixture['child']->id, 'photo_verification_reason' => 'personally_known'])
         ->assertUnprocessable()->assertJsonValidationErrors('child_id');
 
     expect($extra->fresh()->requested_child_id)->toBeNull();
     expect($fixture['request']->fresh()->duplicate_child_match)->toBeTrue();
-    $this->postJson(route('staff.collections.update', $fixture['request']), ['action' => 'review', 'revision' => $fixture['request']->fresh()->revision, 'identity_confirmed' => true, 'photo_verification_reason' => 'personally_known'])
+    $this->postJson(route('staff.collections.update', ['site' => $fixture['request']->site->uuid, 'collectionRequest' => $fixture['request']]), ['action' => 'review', 'revision' => $fixture['request']->fresh()->revision, 'identity_confirmed' => true, 'photo_verification_reason' => 'personally_known'])
         ->assertUnprocessable()->assertJsonValidationErrors('child_id');
-    $this->postJson(route('staff.collections.update', $extra), ['action' => 'cancel', 'revision' => $fixture['request']->fresh()->revision, 'cancellation_reason' => 'duplicate'])->assertOk();
-    $this->postJson(route('staff.collections.update', $fixture['request']), ['action' => 'review', 'revision' => $fixture['request']->fresh()->revision, 'identity_confirmed' => true, 'photo_verification_reason' => 'personally_known'])->assertOk();
+    $this->postJson(route('staff.collections.update', ['site' => $extra->site->uuid, 'collectionRequest' => $extra]), ['action' => 'cancel', 'revision' => $fixture['request']->fresh()->revision, 'cancellation_reason' => 'duplicate'])->assertOk();
+    $this->postJson(route('staff.collections.update', ['site' => $fixture['request']->site->uuid, 'collectionRequest' => $fixture['request']]), ['action' => 'review', 'revision' => $fixture['request']->fresh()->revision, 'identity_confirmed' => true, 'photo_verification_reason' => 'personally_known'])->assertOk();
 });
 
 test('handover is blocked when eligibility is revoked after preparation', function (string $revoked): void {
@@ -154,7 +154,7 @@ test('handover is blocked when eligibility is revoked after preparation', functi
     };
 
     $this->actingAs($fixture['staff'])->withSession(['staff_signed_in_at' => now()->timestamp])
-        ->postJson(route('staff.collections.update', $fixture['request']), ['action' => 'collect', 'revision' => $fixture['request']->fresh()->revision])
+        ->postJson(route('staff.collections.update', ['site' => $fixture['request']->site->uuid, 'collectionRequest' => $fixture['request']]), ['action' => 'collect', 'revision' => $fixture['request']->fresh()->revision])
         ->assertUnprocessable()->assertJsonValidationErrors('action');
 
     expect($fixture['request']->fresh())->collection_state->toBe(ChildCollectionState::Preparing)->collected_at->toBeNull();
@@ -167,7 +167,7 @@ test('reviewing the first child locks the adult for all children', function (): 
     $otherChild = Child::factory()->hasAttached($fixture['site'], [], 'sites')->create();
 
     $this->actingAs($fixture['staff'])->withSession(['staff_signed_in_at' => now()->timestamp])
-        ->postJson(route('staff.collections.update', $extra), ['action' => 'review', 'revision' => 1, 'identity_confirmed' => true, 'adult_id' => $otherAdult->id, 'child_id' => $otherChild->id])
+        ->postJson(route('staff.collections.update', ['site' => $extra->site->uuid, 'collectionRequest' => $extra]), ['action' => 'review', 'revision' => 1, 'identity_confirmed' => true, 'adult_id' => $otherAdult->id, 'child_id' => $otherChild->id])
         ->assertUnprocessable()->assertJsonValidationErrors('adult_id');
 
     expect($fixture['request']->fresh()->adult_id)->toBe($fixture['adult']->id);
@@ -178,7 +178,7 @@ test('staff can explicitly flag a draft duplicate without accepting its identity
     $extra = CollectionRequest::factory()->for($fixture['site'])->createQuietly(['parent_request_id' => $fixture['request']->id, 'adult_id' => $fixture['adult']->id]);
     $this->actingAs($fixture['staff'])->withSession(['staff_signed_in_at' => now()->timestamp]);
 
-    $this->postJson(route('staff.collections.update', $extra), ['action' => 'flag_duplicate', 'revision' => 1, 'child_id' => $fixture['child']->id])->assertOk()->assertJsonPath('saved', true);
+    $this->postJson(route('staff.collections.update', ['site' => $extra->site->uuid, 'collectionRequest' => $extra]), ['action' => 'flag_duplicate', 'revision' => 1, 'child_id' => $fixture['child']->id])->assertOk()->assertJsonPath('saved', true);
 
     expect($extra->fresh())->requested_child_id->toBeNull()->duplicate_child_match->toBeTrue()->collection_state->toBe(ChildCollectionState::NeedsChecking);
     expect($fixture['request']->fresh()->duplicate_child_match)->toBeTrue();
@@ -189,7 +189,7 @@ test('finished child collections are read-only for staff', function (ChildCollec
     $fixture = collectionWorkflowFixture(['collection_state' => $state]);
 
     $this->actingAs($fixture['staff'])->withSession(['staff_signed_in_at' => now()->timestamp])
-        ->postJson(route('staff.collections.update', $fixture['request']), ['action' => 'cancel', 'revision' => 1, 'cancellation_reason' => 'duplicate'])
+        ->postJson(route('staff.collections.update', ['site' => $fixture['request']->site->uuid, 'collectionRequest' => $fixture['request']]), ['action' => 'cancel', 'revision' => 1, 'cancellation_reason' => 'duplicate'])
         ->assertUnprocessable()->assertJsonValidationErrors('action');
 
     expect($fixture['request']->fresh()->collection_state)->toBe($state);

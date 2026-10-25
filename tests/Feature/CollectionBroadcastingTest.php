@@ -12,7 +12,7 @@ beforeEach(function (): void {
 
 test('a private staff channel is restricted to the assigned venue and current daily session', function (): void {
     $site = Site::factory()->create();
-    $staff = User::factory()->create(['staff_site_id' => $site->id]);
+    $staff = User::factory()->hasAttached($site, [], 'staffSites')->create();
     $staff->assignRole('staff');
     $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp]);
 
@@ -33,8 +33,8 @@ test('the collecting browser can authorise its own private status channel withou
 
 test('verified admins can receive the selected venues staff updates without a kiosk assignment', function (): void {
     $site = Site::factory()->create();
-    $admin = User::factory()->administrator()->create();
-    $this->actingAs($admin)->postJson('/broadcasting/auth', ['socket_id' => '1234.1234', 'channel_name' => 'private-staff.'.$site->id])->assertOk()->assertJsonStructure(['auth']);
+    $admin = User::factory()->administrator()->globalCollector()->create();
+    $this->actingAs($admin)->withSession(['staff_signed_in_at' => now()->timestamp])->postJson('/broadcasting/auth', ['socket_id' => '1234.1234', 'channel_name' => 'private-staff.'.$site->id])->assertOk()->assertJsonStructure(['auth']);
     $this->postJson('/broadcasting/auth', ['socket_id' => '1234.1234', 'channel_name' => 'private-staff.'.($site->id + 100)])->assertForbidden();
     $admin->forceFill(['email_verified_at' => null])->save();
     $this->postJson('/broadcasting/auth', ['socket_id' => '1234.1234', 'channel_name' => 'private-staff.'.$site->id])->assertForbidden();

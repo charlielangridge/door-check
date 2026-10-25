@@ -54,6 +54,13 @@ class UserFactory extends Factory
         });
     }
 
+    public function globalCollector(): static
+    {
+        return $this->afterCreating(function (User $user): void {
+            $user->givePermissionTo(Permission::findOrCreate('process collections at any site', 'web'));
+        });
+    }
+
     /**
      * Indicate that the model has two-factor authentication configured.
      */

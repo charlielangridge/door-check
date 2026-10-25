@@ -9,7 +9,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -32,7 +32,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'email', 'password', 'staff_site_id', 'email_verified_at'])]
+#[Fillable(['name', 'email', 'password', 'email_verified_at'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements \OwenIt\Auditing\Contracts\Auditable, FilamentUser, MustVerifyEmail, PasskeyUser
 {
@@ -41,10 +41,10 @@ class User extends Authenticatable implements \OwenIt\Auditing\Contracts\Auditab
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
 
-    /** @return BelongsTo<Site, $this> */
-    public function staffSite(): BelongsTo
+    /** @return BelongsToMany<Site, $this, AuditedMembership> */
+    public function staffSites(): BelongsToMany
     {
-        return $this->belongsTo(Site::class, 'staff_site_id');
+        return $this->belongsToMany(Site::class, 'staff_site_user')->using(AuditedMembership::class);
     }
 
     public function canAccessPanel(Panel $panel): bool
@@ -60,7 +60,6 @@ class User extends Authenticatable implements \OwenIt\Auditing\Contracts\Auditab
     protected function casts(): array
     {
         return [
-            'staff_site_id' => 'integer',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',

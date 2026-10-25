@@ -13,9 +13,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class StaffMediaController extends Controller
 {
-    public function show(Request $request, AuditedMedia $media): StreamedResponse
+    public function show(Request $request, Site $site, AuditedMedia $media): StreamedResponse
     {
-        $siteId = $request->user()->staff_site_id;
+        $siteId = $site->id;
         $allowed = match ($media->model_type) {
             Adult::class, Child::class => $media->model()->whereHas('sites', fn ($query) => $query->whereKey($siteId))->exists(),
             CollectionRequest::class => $media->model()->where('site_id', $siteId)->exists(),

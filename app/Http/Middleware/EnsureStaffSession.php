@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Site;
 use App\Services\StaffSession;
 use Closure;
 use Illuminate\Http\Request;
@@ -18,7 +19,11 @@ class EnsureStaffSession
      */
     public function handle(Request $request, Closure $next): Response
     {
-        abort_unless($request->user()?->can('access staff') && $request->user()->staff_site_id !== null, 403);
+        abort_unless($request->user()?->can('access staff') || $request->user()?->can('process collections at any site'), 403);
+        $site = $request->route('site');
+        if ($site instanceof Site) {
+            abort_unless($request->user()->can('processCollections', $site), 404);
+        }
 
         if (! $this->sessions->isCurrent($request)) {
             auth()->guard('web')->logout();

@@ -18,6 +18,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 class UserResource extends Resource
@@ -34,11 +35,17 @@ class UserResource extends Resource
             ->components([
                 ...static::accountFields(),
                 Select::make('roles')->relationship('roles', 'name')->multiple()->preload()->searchable()->live()
-                    ->helperText('Choose staff to give this account access to its assigned venue’s collection board.'),
-                Select::make('permissions')->relationship('permissions', 'name')->multiple()->preload()->searchable()->helperText('Additional permissions; roles already include their assigned permissions.'),
-                Select::make('staff_site_id')->relationship('staffSite', 'name')->searchable()->preload()
-                    ->label('Staff venue')->helperText('The kiosk can only access this venue.')
-                    ->required(fn (Get $get): bool => Role::query()->whereIn('id', (array) $get('roles'))->where('name', 'staff')->exists()),
+                    ->helperText('Choose staff to give this account access to its assigned venues’ collection boards.'),
+                Select::make('permissions')->relationship('permissions', 'name')->multiple()->preload()->searchable()->live()->helperText('Additional permissions; roles already include their assigned permissions.'),
+                Select::make('staffSites')->relationship('staffSites', 'name')->multiple()->searchable()->preload()
+                    ->label('Staff venues')->helperText('Staff can process collections at these venues. The process collections at any site permission grants access to every venue.')
+                    ->required(function (Get $get): bool {
+                        $roles = (array) $get('roles');
+                        $global = Permission::query()->whereIn('id', (array) $get('permissions'))->where('name', 'process collections at any site')->exists()
+                            || Role::query()->whereIn('id', $roles)->whereHas('permissions', fn ($query) => $query->where('name', 'process collections at any site'))->exists();
+
+                        return ! $global && Role::query()->whereIn('id', $roles)->where('name', 'staff')->exists();
+                    }),
             ]);
     }
 
@@ -60,7 +67,7 @@ class UserResource extends Resource
                 TextColumn::make('name')->searchable(),
                 TextColumn::make('email')->searchable(),
                 TextColumn::make('roles.name')->badge(),
-                TextColumn::make('staffSite.name')->label('Staff venue')->placeholder('Not assigned'),
+                TextColumn::make('staffSites.name')->label('Staff venues')->badge()->placeholder('Not assigned'),
             ])
             ->filters([
                 //

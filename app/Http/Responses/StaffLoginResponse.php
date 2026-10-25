@@ -9,8 +9,8 @@ class StaffLoginResponse extends LoginResponse
 {
     public function toResponse(mixed $request): Response
     {
-        if ($request->user()?->can('access staff') && ! $request->user()->can('access admin')) {
-            return $request->wantsJson() ? response()->json(['two_factor' => false]) : redirect()->route('staff.board');
+        if (($request->user()?->can('access staff') || $request->user()?->can('process collections at any site')) && ! $request->user()->can('access admin')) {
+            return $request->wantsJson() ? response()->json(['two_factor' => false]) : redirect()->route('staff.index');
         }
 
         return parent::toResponse($request);

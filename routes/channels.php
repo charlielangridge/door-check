@@ -9,9 +9,10 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Broadcast;
 
 Broadcast::channel('staff.{siteId}', function (User $user, string $siteId): bool {
-    return $user->hasVerifiedEmail() && Site::query()->whereKey($siteId)->exists()
-        && ($user->can('access admin') || ($user->can('access staff') && (int) $user->staff_site_id === (int) $siteId
-            && app(StaffSession::class)->isCurrent(request())));
+    $site = Site::query()->find($siteId);
+
+    return $site !== null && $user->hasVerifiedEmail() && $user->can('processCollections', $site)
+        && app(StaffSession::class)->isCurrent(request());
 });
 
 Broadcast::channel('collection.{uuid}', function (Authenticatable $browser, string $uuid): bool {

@@ -14,6 +14,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useStaffCollectionRoutes } from '@/composables/useStaffCollectionRoutes';
 import { index as adminSites } from '@/routes/filament/admin/resources/sites';
 import { logout } from '@/routes';
+import { index as staffSites } from '@/routes/staff';
 import { Button } from '@/components/ui/button';
 import { useCollectionChannel } from '@/composables/useCollectionChannel';
 import type { CollectionState } from '@/types/collections';
@@ -32,12 +33,13 @@ interface BoardRequest {
     }[];
 }
 const props = defineProps<{
-    site: { id: number; name: string };
+    site: { id: number; name: string; uuid: string };
     requests: BoardRequest[];
     history: boolean;
-    admin_site?: string | null;
+    is_admin: boolean;
+    can_choose_site: boolean;
 }>();
-const { board: index, show } = useStaffCollectionRoutes(props.admin_site);
+const { board: index, show } = useStaffCollectionRoutes(props.site.uuid);
 const currentTime = ref(Date.now());
 const sound = ref(false);
 const highlighted = ref<string[]>([]);
@@ -62,7 +64,7 @@ const { live, configured } = useCollectionChannel(
 usePoll(
     15000,
     {
-        only: ['requests', 'site'],
+        only: ['requests', 'site', 'can_choose_site', 'is_admin'],
         onSuccess: () => {
             reachable.value = true;
         },
@@ -141,7 +143,7 @@ function jumpToNew(): void {
 }
 function reconnect(): void {
     router.reload({
-        only: ['requests', 'site'],
+        only: ['requests', 'site', 'can_choose_site', 'is_admin'],
         onSuccess: () => {
             reachable.value = true;
         },
@@ -210,13 +212,20 @@ onBeforeUnmount(() => {
                 aria-label="Staff controls"
             >
                 <Button
-                    v-if="admin_site"
+                    v-if="is_admin"
                     as-child
                     variant="outline"
                     class="min-h-12"
                 >
                     <a :href="adminSites.url()">Back to admin</a>
                 </Button>
+                <Button
+                    v-if="can_choose_site"
+                    as-child
+                    variant="outline"
+                    class="min-h-12"
+                    ><Link :href="staffSites()">Change venue</Link></Button
+                >
                 <Button variant="outline" class="min-h-12" @click="toggleSound"
                     ><Volume2 v-if="sound" class="size-5" /><VolumeX
                         v-else

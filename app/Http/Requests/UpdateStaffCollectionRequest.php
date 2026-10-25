@@ -15,9 +15,7 @@ class UpdateStaffCollectionRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->routeIs('admin.staff.*')
-            ? ($this->user()?->can('access admin') ?? false)
-            : ($this->user()?->can('access staff') ?? false);
+        return $this->user()?->can('processCollections', $this->route('site')) ?? false;
     }
 
     /**

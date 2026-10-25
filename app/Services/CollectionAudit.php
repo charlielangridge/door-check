@@ -14,6 +14,7 @@ class CollectionAudit
     public function record(string $event, Model $subject, array $details = [], ?User $actor = null): Audit
     {
         $actor ??= auth()->user();
+        $site = request()->route('site');
 
         return Audit::query()->create([
             'event' => $event,
@@ -22,7 +23,7 @@ class CollectionAudit
             'user_type' => $actor?->getMorphClass(),
             'user_id' => $actor?->getKey(),
             'actor_name' => $actor?->name,
-            'site_id' => ($details['table'] ?? null) === 'adult_child' ? null : ($subject instanceof CollectionRequest ? $subject->site_id : ($details['site_id'] ?? ($subject instanceof Site ? $subject->getKey() : $actor?->staff_site_id))),
+            'site_id' => ($details['table'] ?? null) === 'adult_child' ? null : ($subject instanceof CollectionRequest ? $subject->site_id : ($details['site_id'] ?? ($subject instanceof Site ? $subject->getKey() : ($site instanceof Site ? $site->getKey() : null)))),
             'collection_request_id' => $subject instanceof CollectionRequest ? $subject->groupId() : null,
             'adult_id' => $details['adult_id'] ?? null,
             'child_id' => $details['child_id'] ?? null,

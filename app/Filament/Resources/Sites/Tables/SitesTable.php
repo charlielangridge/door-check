@@ -23,7 +23,8 @@ class SitesTable
             ])
             ->recordActions([
                 Action::make('staffDashboard')->label('Staff dashboard')->icon('heroicon-o-rectangle-group')
-                    ->url(fn (Site $record): string => route('admin.staff.board', $record->uuid))->openUrlInNewTab(),
+                    ->visible(fn (Site $record): bool => auth()->user()->can('processCollections', $record))
+                    ->url(fn (Site $record): string => route('staff.board', $record->uuid))->openUrlInNewTab(),
                 EditAction::make(),
             ])
             ->toolbarActions([

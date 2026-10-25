@@ -29,14 +29,13 @@ const props = defineProps<{
     collection: StaffCollection;
     cancellation_reasons: { value: string; label: string }[];
     photo_reasons: { value: string; label: string }[];
-    admin_site?: string | null;
 }>();
 const {
     checks,
     data: loadData,
     timeline: loadTimeline,
     update,
-} = useStaffCollectionRoutes(props.admin_site);
+} = useStaffCollectionRoutes(props.collection.site_uuid);
 const record = ref(props.collection);
 const activeUuid = ref(
     record.value.children.find(
@@ -475,7 +474,7 @@ function photoFailed(kind: string): void {
                         :candidates="record.adult_candidates"
                         person="adult"
                         :entry-uuid="entry.uuid"
-                        :admin-site="admin_site"
+                        :site-uuid="record.site_uuid"
                     />
                     <div class="grid grid-cols-2 gap-4">
                         <figure class="rounded-2xl border bg-muted/30 p-4">
@@ -598,7 +597,7 @@ function photoFailed(kind: string): void {
                         :candidates="entry.candidates"
                         person="child"
                         :entry-uuid="entry.uuid"
-                        :admin-site="admin_site"
+                        :site-uuid="record.site_uuid"
                     />
                     <div class="grid gap-5 sm:grid-cols-[14rem_1fr]">
                         <figure class="rounded-2xl border bg-muted/30 p-4">

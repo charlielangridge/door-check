@@ -61,7 +61,7 @@ class AppServiceProvider extends ServiceProvider
             if (! $event->user instanceof User) {
                 return;
             }
-            if ($event->user->can('access staff') && ! Auth::guard($event->guard)->viaRemember()) {
+            if (($event->user->can('access staff') || $event->user->can('process collections at any site')) && ! Auth::guard($event->guard)->viaRemember()) {
                 request()->session()->put('staff_signed_in_at', now()->timestamp);
                 Cookie::queue(cookie('staff_kiosk', '1', (int) config('staff-collections.session_minutes'), httpOnly: true, sameSite: 'lax'));
             }

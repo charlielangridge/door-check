@@ -44,7 +44,13 @@ class SitePolicy
      */
     public function delete(User $user, Site $site): bool
     {
-        return ! $site->collectionRequests()->exists() && ! User::query()->where('staff_site_id', $site->getKey())->exists();
+        return ! $site->collectionRequests()->exists() && ! $site->staffUsers()->exists();
+    }
+
+    public function processCollections(User $user, Site $site): bool
+    {
+        return $user->can('process collections at any site')
+            || ($user->can('access staff') && $user->staffSites()->whereKey($site->getKey())->exists());
     }
 
     public function deleteAny(User $user): bool

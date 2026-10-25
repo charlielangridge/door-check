@@ -47,6 +47,7 @@ export interface StaffCollection {
     revision: number;
     site_name: string;
     site_id: number;
+    site_uuid: string;
     requested_at: string;
     submitted_adult_name: string;
     adult: CollectionPerson | null;

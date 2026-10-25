@@ -12,12 +12,12 @@ class StaffVenueAssignments
     {
         return DB::transaction(function () use ($staff, $site): bool {
             $current = User::query()->whereKey($staff->getKey())->lockForUpdate()->firstOrFail();
-            if ($current->staff_site_id !== null || ! $current->hasRole('staff', 'web')) {
+            if (! $current->hasRole('staff', 'web') || $current->staffSites()->whereKey($site->getKey())->exists()) {
                 return false;
             }
-            $current->staffSite()->associate($site);
+            $current->staffSites()->attach($site);
 
-            return $current->save();
+            return true;
         }, 3);
     }
 
@@ -25,12 +25,8 @@ class StaffVenueAssignments
     {
         return DB::transaction(function () use ($staff, $site): bool {
             $current = User::query()->whereKey($staff->getKey())->lockForUpdate()->firstOrFail();
-            if ($current->staff_site_id !== $site->getKey()) {
-                return false;
-            }
-            $current->staffSite()->dissociate();
 
-            return $current->save();
+            return $current->staffSites()->detach($site) > 0;
         }, 3);
     }
 }

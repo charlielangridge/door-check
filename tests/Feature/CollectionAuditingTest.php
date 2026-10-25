@@ -95,10 +95,9 @@ test('admin photo replacement retains older evidence and private delivery enforc
     $newPhoto = $adult->fresh()->getMedia('logo')->last();
     $this->assertDatabaseHas('audits', ['auditable_type' => AuditedMedia::class, 'auditable_id' => $newPhoto->id, 'event' => 'created', 'user_id' => $admin->id]);
     Queue::assertPushed(PerformConversionsJob::class, 2);
-    $staff = User::factory()->create(['staff_site_id' => $site->id]);
+    $staff = User::factory()->hasAttached($site, [], 'staffSites')->create();
     $staff->assignRole('staff');
-    $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp])->get(route('staff.media.show', $newPhoto))->assertOk()->assertHeader('Content-Type', 'image/jpeg');
-    $staff->staff_site_id = Site::factory()->create()->id;
-    $staff->save();
-    $this->get(route('staff.media.show', $newPhoto))->assertNotFound();
+    $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp])->get(route('staff.media.show', ['site' => $site->uuid, 'media' => $newPhoto]))->assertOk()->assertHeader('Content-Type', 'image/jpeg');
+    $staff->staffSites()->detach($site);
+    $this->get(route('staff.media.show', ['site' => $site->uuid, 'media' => $newPhoto]))->assertNotFound();
 });

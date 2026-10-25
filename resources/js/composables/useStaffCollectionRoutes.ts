@@ -1,13 +1,4 @@
-import { board as adminBoard } from '@/routes/admin/staff';
-import {
-    show as adminShow,
-    data as adminData,
-    candidates as adminCandidates,
-    checks as adminChecks,
-    timeline as adminTimeline,
-    update as adminUpdate,
-} from '@/routes/admin/staff/collections';
-import { board as staffBoard } from '@/routes/staff';
+import { board } from '@/routes/staff';
 import {
     show,
     data,
@@ -18,21 +9,33 @@ import {
 } from '@/routes/staff/collections';
 import type { RouteQueryOptions } from '@/wayfinder';
 
-export function useStaffCollectionRoutes(adminSite?: string | null) {
-    const collectionRoutes = adminSite
-        ? {
-              show: adminShow,
-              data: adminData,
-              candidates: adminCandidates,
-              checks: adminChecks,
-              timeline: adminTimeline,
-              update: adminUpdate,
-          }
-        : { show, data, candidates, checks, timeline, update };
-
+export function useStaffCollectionRoutes(site: string) {
+    const args = (collectionRequest: string) => ({ site, collectionRequest });
     return {
-        ...collectionRoutes,
-        board: (options?: RouteQueryOptions) =>
-            adminSite ? adminBoard(adminSite, options) : staffBoard(options),
+        board: (options?: RouteQueryOptions) => board(site, options),
+        show: {
+            url: (uuid: string, options?: RouteQueryOptions) =>
+                show.url(args(uuid), options),
+        },
+        data: {
+            url: (uuid: string, options?: RouteQueryOptions) =>
+                data.url(args(uuid), options),
+        },
+        candidates: {
+            url: (uuid: string, options?: RouteQueryOptions) =>
+                candidates.url(args(uuid), options),
+        },
+        checks: {
+            url: (uuid: string, options?: RouteQueryOptions) =>
+                checks.url(args(uuid), options),
+        },
+        timeline: {
+            url: (uuid: string, options?: RouteQueryOptions) =>
+                timeline.url(args(uuid), options),
+        },
+        update: {
+            url: (uuid: string, options?: RouteQueryOptions) =>
+                update.url(args(uuid), options),
+        },
     };
 }

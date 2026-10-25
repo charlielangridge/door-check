@@ -8,6 +8,7 @@ use App\Models\Adult;
 use App\Models\Audit;
 use App\Models\Child;
 use App\Models\CollectionRequest;
+use App\Models\Site;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -58,7 +59,7 @@ class CollectionBoardData
     public function details(CollectionRequest $request): array
     {
         $root = CollectionRequest::query()->with(['site', 'adult.media', 'media'])->findOrFail($request->groupId());
-        $entries = $root->groupEntries()->with(['requestedChild.media'])->orderBy('id')->get();
+        $entries = $root->groupEntries()->with(['requestedChild.media', 'site'])->orderBy('id')->get();
         $relationships = $root->adult?->children()->pluck('relationship', 'children.id')->all() ?? [];
 
         return [
@@ -66,11 +67,12 @@ class CollectionBoardData
             'revision' => $root->revision,
             'site_name' => $root->site->name,
             'site_id' => $root->site_id,
+            'site_uuid' => $root->site->uuid,
             'requested_at' => $root->requested_at->toIso8601String(),
             'submitted_adult_name' => $root->requester_name_text,
-            'adult' => $root->adult ? $this->person($root->adult) : null,
+            'adult' => $root->adult ? $this->person($root->adult, $root->site) : null,
             'adult_locked' => $root->adult_locked_at !== null,
-            'requester_photo' => $this->photo($root->getFirstMedia('requester_photo')),
+            'requester_photo' => $this->photo($root->getFirstMedia('requester_photo'), $root->site),
             'adult_candidates' => $this->candidates($root, CollectionRequestMatchPerson::Adult),
             'adult_match_status' => $root->adult_match_status->value,
             'adult_match_confidence' => $root->adult_match_confidence,
@@ -79,7 +81,7 @@ class CollectionBoardData
             'children' => $entries->map(fn (CollectionRequest $entry): array => [
                 'uuid' => $entry->uuid,
                 'submitted_name' => $entry->requested_child_text,
-                'child' => $entry->requestedChild ? $this->person($entry->requestedChild) : null,
+                'child' => $entry->requestedChild ? $this->person($entry->requestedChild, $root->site) : null,
                 'state' => $entry->collection_state->value,
                 'label' => $entry->collection_state->label(),
                 'match_status' => $entry->child_match_status->value,
@@ -155,7 +157,7 @@ class CollectionBoardData
         foreach ($snapshots as $snapshot) {
             $candidate = $people->get($snapshot['id']);
             if ($candidate !== null) {
-                $results[] = [...$this->person($candidate), 'confidence' => $snapshot['confidence'] ?? null];
+                $results[] = [...$this->person($candidate, $request->site), 'confidence' => $snapshot['confidence'] ?? null];
             }
             if (count($results) === 5) {
                 break;
@@ -166,13 +168,13 @@ class CollectionBoardData
     }
 
     /** @return array<string, mixed> */
-    private function person(Adult|Child $person): array
+    private function person(Adult|Child $person, Site $site): array
     {
-        return ['id' => $person->getKey(), 'name' => $person->name, 'aliases' => $person->also_known_as ?? [], 'photo' => $this->photo($person->getMedia('logo')->last())];
+        return ['id' => $person->getKey(), 'name' => $person->name, 'aliases' => $person->also_known_as ?? [], 'photo' => $this->photo($person->getMedia('logo')->last(), $site)];
     }
 
-    private function photo(?Media $media): ?string
+    private function photo(?Media $media, Site $site): ?string
     {
-        return $media ? route(auth()->user()?->can('access admin') ? 'admin.media.show' : 'staff.media.show', $media->getKey()) : null;
+        return $media ? route('staff.media.show', ['site' => $site->uuid, 'media' => $media->getKey()]) : null;
     }
 }
