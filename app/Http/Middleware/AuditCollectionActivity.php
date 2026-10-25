@@ -48,7 +48,7 @@ class AuditCollectionActivity
             $this->audit->record('admin_viewed', $request->user(), ['route' => $request->route()?->getName()]);
         }
 
-        if ($request->is('staff', 'staff/*', 'collection-status/*')) {
+        if ($request->is('staff', 'staff/*', 'admin/staff/*', 'collection-status/*')) {
             $response->headers->set('Cache-Control', 'private, no-store');
         }
 

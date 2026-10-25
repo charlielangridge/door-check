@@ -31,6 +31,15 @@ test('the collecting browser can authorise its own private status channel withou
     $this->assertGuest();
 });
 
+test('verified admins can receive the selected venues staff updates without a kiosk assignment', function (): void {
+    $site = Site::factory()->create();
+    $admin = User::factory()->administrator()->create();
+    $this->actingAs($admin)->postJson('/broadcasting/auth', ['socket_id' => '1234.1234', 'channel_name' => 'private-staff.'.$site->id])->assertOk()->assertJsonStructure(['auth']);
+    $this->postJson('/broadcasting/auth', ['socket_id' => '1234.1234', 'channel_name' => 'private-staff.'.($site->id + 100)])->assertForbidden();
+    $admin->forceFill(['email_verified_at' => null])->save();
+    $this->postJson('/broadcasting/auth', ['socket_id' => '1234.1234', 'channel_name' => 'private-staff.'.$site->id])->assertForbidden();
+});
+
 test('another browser cannot authorise a private collection channel', function (): void {
     $request = CollectionRequest::factory()->createQuietly(['browser_key_hash' => hash('sha256', str_repeat('a', 64))]);
 

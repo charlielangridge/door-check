@@ -12,6 +12,7 @@ use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -25,20 +26,31 @@ class UserResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
+    protected static ?string $navigationLabel = 'Staff & users';
+
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-                TextInput::make('name')->label('Staff member name')->required()->maxLength(255),
-                TextInput::make('email')->email()->required()->unique(ignoreRecord: true)->maxLength(255),
-                TextInput::make('password')->password()->revealable()->required(fn (string $operation): bool => $operation === 'create')->minLength(12)->dehydrated(fn (?string $state): bool => filled($state)),
-                DateTimePicker::make('email_verified_at')->label('Email verified at')->default(now()),
-                Select::make('roles')->relationship('roles', 'name')->multiple()->preload()->searchable(),
+                ...static::accountFields(),
+                Select::make('roles')->relationship('roles', 'name')->multiple()->preload()->searchable()->live()
+                    ->helperText('Choose staff to give this account access to its assigned venue’s collection board.'),
                 Select::make('permissions')->relationship('permissions', 'name')->multiple()->preload()->searchable()->helperText('Additional permissions; roles already include their assigned permissions.'),
                 Select::make('staff_site_id')->relationship('staffSite', 'name')->searchable()->preload()
                     ->label('Staff venue')->helperText('The kiosk can only access this venue.')
                     ->required(fn (Get $get): bool => Role::query()->whereIn('id', (array) $get('roles'))->where('name', 'staff')->exists()),
             ]);
+    }
+
+    /** @return list<Component> */
+    public static function accountFields(): array
+    {
+        return [
+            TextInput::make('name')->label('Staff member name')->required()->maxLength(255),
+            TextInput::make('email')->email()->required()->unique(ignoreRecord: true)->maxLength(255),
+            TextInput::make('password')->password()->revealable()->required(fn (string $operation): bool => $operation === 'create')->minLength(12)->dehydrated(fn (?string $state): bool => filled($state)),
+            DateTimePicker::make('email_verified_at')->label('Email verified at')->default(now()),
+        ];
     }
 
     public static function table(Table $table): Table

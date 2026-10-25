@@ -17,12 +17,13 @@ class StaffCollectionWorkflow
     public function __construct(private readonly CollectionAudit $audit, private readonly CollectionMatchingSettings $matchingSettings, private readonly CollectionDuplicateChecks $duplicates) {}
 
     /** @param array<string, mixed> $data */
-    public function apply(CollectionRequest $request, User $staff, array $data): CollectionRequest
+    public function apply(CollectionRequest $request, User $staff, array $data, bool $asAdmin = false): CollectionRequest
     {
-        $result = DB::transaction(function () use ($request, $staff, $data): CollectionRequest|ValidationException {
+        abort_if($asAdmin && ! $staff->can('access admin'), 403);
+        $result = DB::transaction(function () use ($request, $staff, $data, $asAdmin): CollectionRequest|ValidationException {
             $root = CollectionRequest::query()->lockForUpdate()->findOrFail($request->groupId());
             $entry = $request->getKey() === $root->getKey() ? $root : CollectionRequest::query()->whereKey($request->getKey())->lockForUpdate()->firstOrFail();
-            abort_unless($root->site_id === $staff->staff_site_id && $entry->site_id === $staff->staff_site_id, 404);
+            abort_unless($entry->site_id === $root->site_id && ($asAdmin || $root->site_id === $staff->staff_site_id), 404);
 
             if ($data['action'] === 'discard') {
                 $this->audit->record('draft_discarded', $entry, [], $staff);

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Check, Search, UserRound } from '@lucide/vue';
 import { onBeforeUnmount, ref, watch } from 'vue';
-import { candidates as searchCandidates } from '@/actions/App/Http/Controllers/StaffCollectionController';
+import { useStaffCollectionRoutes } from '@/composables/useStaffCollectionRoutes';
 import { collectionHttp } from '@/lib/collectionHttp';
 import type { CollectionPerson } from '@/types/collections';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,11 @@ const props = defineProps<{
     candidates: CollectionPerson[];
     person: 'adult' | 'child';
     entryUuid: string;
+    adminSite?: string | null;
 }>();
+const { candidates: searchCandidates } = useStaffCollectionRoutes(
+    props.adminSite,
+);
 const emit = defineEmits<{ 'update:modelValue': [person: CollectionPerson] }>();
 const query = ref('');
 const choices = ref(props.candidates);

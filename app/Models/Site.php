@@ -63,6 +63,12 @@ class Site extends Model implements \OwenIt\Auditing\Contracts\Auditable, HasMed
         return $this->hasMany(CollectionRequest::class);
     }
 
+    /** @return HasMany<User, $this> */
+    public function staffUsers(): HasMany
+    {
+        return $this->hasMany(User::class, 'staff_site_id');
+    }
+
     protected function casts(): array
     {
         return [

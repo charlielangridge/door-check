@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Sites\Tables;
 
+use App\Models\Site;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -20,6 +22,8 @@ class SitesTable
                 //
             ])
             ->recordActions([
+                Action::make('staffDashboard')->label('Staff dashboard')->icon('heroicon-o-rectangle-group')
+                    ->url(fn (Site $record): string => route('admin.staff.board', $record->uuid))->openUrlInNewTab(),
                 EditAction::make(),
             ])
             ->toolbarActions([

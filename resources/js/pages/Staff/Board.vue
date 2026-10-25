@@ -11,10 +11,8 @@ import {
     VolumeX,
 } from '@lucide/vue';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import {
-    index,
-    show,
-} from '@/actions/App/Http/Controllers/StaffCollectionController';
+import { useStaffCollectionRoutes } from '@/composables/useStaffCollectionRoutes';
+import { index as adminSites } from '@/routes/filament/admin/resources/sites';
 import { logout } from '@/routes';
 import { Button } from '@/components/ui/button';
 import { useCollectionChannel } from '@/composables/useCollectionChannel';
@@ -37,7 +35,9 @@ const props = defineProps<{
     site: { id: number; name: string };
     requests: BoardRequest[];
     history: boolean;
+    admin_site?: string | null;
 }>();
+const { board: index, show } = useStaffCollectionRoutes(props.admin_site);
 const currentTime = ref(Date.now());
 const sound = ref(false);
 const highlighted = ref<string[]>([]);
@@ -209,6 +209,14 @@ onBeforeUnmount(() => {
                 class="flex flex-wrap items-center gap-3"
                 aria-label="Staff controls"
             >
+                <Button
+                    v-if="admin_site"
+                    as-child
+                    variant="outline"
+                    class="min-h-12"
+                >
+                    <a :href="adminSites.url()">Back to admin</a>
+                </Button>
                 <Button variant="outline" class="min-h-12" @click="toggleSound"
                     ><Volume2 v-if="sound" class="size-5" /><VolumeX
                         v-else

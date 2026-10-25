@@ -173,6 +173,6 @@ class CollectionBoardData
 
     private function photo(?Media $media): ?string
     {
-        return $media ? route('staff.media.show', $media->getKey()) : null;
+        return $media ? route(auth()->user()?->can('access admin') ? 'admin.media.show' : 'staff.media.show', $media->getKey()) : null;
     }
 }
