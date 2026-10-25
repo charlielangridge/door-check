@@ -1,6 +1,7 @@
 <?php
 
 use App\CollectionRequestStatus;
+use App\Events\CollectionBoardChanged;
 use App\Jobs\IngestCollectionRequestJob;
 use App\Jobs\MatchCollectionRequestAdultJob;
 use App\Jobs\MatchCollectionRequestChildJob;
@@ -16,8 +17,9 @@ test('creating a collection request queues ingestion only after commit', functio
 
     $this->assertDatabaseCount('jobs', 0);
     DB::commit();
-    $this->assertDatabaseCount('jobs', 1);
-    expect(json_decode(DB::table('jobs')->first()->payload, true)['displayName'])->toBe(IngestCollectionRequestJob::class);
+    $this->assertDatabaseCount('jobs', 2);
+    expect(DB::table('jobs')->orderBy('id')->pluck('payload')->map(fn (string $payload): string => json_decode($payload, true)['displayName'])->all())
+        ->toBe([IngestCollectionRequestJob::class, CollectionBoardChanged::class]);
     expect($request->fresh()->status)->toBe(CollectionRequestStatus::Pending);
 });
 
@@ -43,9 +45,9 @@ test('ingestion dispatches separate adult and child matching jobs', function ():
 });
 
 test('ingestion skips completed requests on redelivery', function (CollectionRequestStatus $status): void {
-    Queue::fake();
     $request = CollectionRequest::factory()->createQuietly();
     $request->forceFill(['status' => $status])->save();
+    Queue::fake();
 
     (new IngestCollectionRequestJob($request))->handle();
 

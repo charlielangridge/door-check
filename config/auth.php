@@ -38,6 +38,9 @@ return [
     */
 
     'guards' => [
+        'collection-browser' => [
+            'driver' => 'collection-browser',
+        ],
         'web' => [
             'driver' => 'session',
             'provider' => 'users',

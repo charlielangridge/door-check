@@ -44,7 +44,7 @@ class SitePolicy
      */
     public function delete(User $user, Site $site): bool
     {
-        return ! $site->collectionRequests()->exists();
+        return ! $site->collectionRequests()->exists() && ! User::query()->where('staff_site_id', $site->getKey())->exists();
     }
 
     public function deleteAny(User $user): bool
@@ -65,6 +65,6 @@ class SitePolicy
      */
     public function forceDelete(User $user, Site $site): bool
     {
-        return ! $site->collectionRequests()->exists();
+        return $this->delete($user, $site);
     }
 }

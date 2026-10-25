@@ -51,6 +51,46 @@ test('postgres binds untrusted names without executing their contents', function
     $this->assertDatabaseCount('adults', 1);
 });
 
+test('a recorded alternative full name participates in discovery and classification', function (): void {
+    $site = Site::factory()->create();
+    $adult = Adult::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Alexandra Whitmore', 'also_known_as' => ['Ziggy Moon']]);
+    $request = CollectionRequest::factory()->for($site)->createQuietly(['requester_name_text' => 'Ziggy Moon']);
+    Classification::fake(fn (ClassificationPrompt $prompt): array => array_fill_keys(array_keys($prompt->questions), new BooleanAnswer(0.99)))->preventStrayClassifications();
+
+    app()->call([new MatchCollectionRequestAdultJob($request->id), 'handle']);
+
+    expect($request->fresh())->adult_id->toBe($adult->id)->adult_match_confidence->toBe(99.0);
+    Classification::assertClassified(fn (ClassificationPrompt $prompt): bool => $prompt->contains('Ziggy Moon') && $prompt->contains('Alexandra Whitmore'));
+});
+
+test('a shared exact alternative name remains ambiguous instead of bypassing the threshold safeguards', function (): void {
+    $site = Site::factory()->create();
+    Adult::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Alexandra Whitmore', 'also_known_as' => ['Ziggy Moon']]);
+    Adult::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Christopher Green', 'also_known_as' => ['Ziggy Moon']]);
+    $request = CollectionRequest::factory()->for($site)->createQuietly(['requester_name_text' => 'Ziggy Moon']);
+    Classification::fake(fn (ClassificationPrompt $prompt): array => array_fill_keys(array_keys($prompt->questions), new BooleanAnswer(0.99)))->preventStrayClassifications();
+
+    app()->call([new MatchCollectionRequestAdultJob($request->id), 'handle']);
+
+    expect($request->fresh())->adult_id->toBeNull()->adult_match_status->toBe(CollectionRequestStatus::NeedsApproval);
+    Classification::assertClassified(fn (ClassificationPrompt $prompt): bool => count($prompt->questions) === 2);
+});
+
+test('automatic child matching flags a duplicate within the same request group', function (): void {
+    $site = Site::factory()->create();
+    $adult = Adult::factory()->hasAttached($site, [], 'sites')->create();
+    $child = Child::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Alexandra Whitmore', 'also_known_as' => ['Ziggy Moon']]);
+    $root = CollectionRequest::factory()->for($site)->createQuietly(['adult_id' => $adult->id, 'requested_child_id' => $child->id]);
+    $extra = CollectionRequest::factory()->for($site)->createQuietly(['parent_request_id' => $root->id, 'adult_id' => $adult->id, 'adult_match_status' => CollectionRequestStatus::Matched, 'requested_child_text' => 'Ziggy Moon']);
+    Classification::fake(fn (ClassificationPrompt $prompt): array => array_fill_keys(array_keys($prompt->questions), new BooleanAnswer(0.99)))->preventStrayClassifications();
+
+    app()->call([new MatchCollectionRequestChildJob($extra->id), 'handle']);
+
+    expect($extra->fresh())->requested_child_id->toBeNull()->duplicate_child_match->toBeTrue()->child_match_status->toBe(CollectionRequestStatus::NeedsApproval);
+    expect($root->fresh()->duplicate_child_match)->toBeTrue();
+    Classification::assertClassified(fn (ClassificationPrompt $prompt): bool => $prompt->contains('Ziggy Moon'));
+});
+
 test('both matching jobs accept a unique related pair in either completion order', function (bool $childFirst): void {
     $site = Site::factory()->create();
     $adult = Adult::factory()->hasAttached($site, [], 'sites')->create(['name' => 'Elizabeth Smith']);

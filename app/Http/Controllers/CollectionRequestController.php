@@ -8,6 +8,7 @@ use App\Models\Site;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -28,8 +29,13 @@ class CollectionRequestController extends Controller
 
     public function store(CreateCollectionRequestRequest $request, Site $site): RedirectResponse
     {
-        DB::transaction(function () use ($request, $site): void {
-            $collectionRequest = $site->collectionRequests()->create([
+        $browserKey = $request->cookie('collection_browser');
+        if (! is_string($browserKey) || strlen($browserKey) !== 64) {
+            $browserKey = Str::random(64);
+        }
+
+        $collectionRequest = DB::transaction(function () use ($request, $site, $browserKey): CollectionRequest {
+            $collectionRequest = $site->collectionRequests()->make([
                 ...$request->safe()->only([
                     'requester_name_text',
                     'requested_child_text',
@@ -38,15 +44,20 @@ class CollectionRequestController extends Controller
                 ]),
                 'requested_at' => now(),
             ]);
+            $collectionRequest->browser_key_hash = hash('sha256', $browserKey);
+            $collectionRequest->save();
 
             if ($request->hasFile('photo')) {
                 $collectionRequest->addMediaFromRequest('photo')
                     ->usingFileName('requester.'.$request->file('photo')->extension())
                     ->toMediaCollection('requester_photo');
             }
+
+            return $collectionRequest;
         });
 
-        return to_route('collection-request.create', $site);
+        return to_route('collection-status.show', $collectionRequest)
+            ->withCookie(cookie('collection_browser', $browserKey, 43200, secure: $request->isSecure(), httpOnly: true, sameSite: 'lax'));
     }
 
     public function show(CollectionRequest $collectionRequest): void {}

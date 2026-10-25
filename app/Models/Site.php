@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use OwenIt\Auditing\Auditable;
 use Spatie\Image\Enums\Fit;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
@@ -19,8 +20,9 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
     'name',
     'uuid',
 ])]
-class Site extends Model implements HasMedia
+class Site extends Model implements \OwenIt\Auditing\Contracts\Auditable, HasMedia
 {
+    use Auditable;
     use BindsOnUuid, GeneratesUuid;
     use InteractsWithMedia;
 
@@ -43,16 +45,16 @@ class Site extends Model implements HasMedia
     /** @use HasFactory<SiteFactory> */
     use HasFactory;
 
-    /** @return BelongsToMany<Adult, $this> */
+    /** @return BelongsToMany<Adult, $this, AuditedMembership> */
     public function adults(): BelongsToMany
     {
-        return $this->belongsToMany(Adult::class, 'site_adult', 'site_id', 'adult_id');
+        return $this->belongsToMany(Adult::class, 'site_adult', 'site_id', 'adult_id')->using(AuditedMembership::class);
     }
 
-    /** @return BelongsToMany<Child, $this> */
+    /** @return BelongsToMany<Child, $this, AuditedMembership> */
     public function children(): BelongsToMany
     {
-        return $this->belongsToMany(Child::class, 'site_child', 'site_id', 'child_id');
+        return $this->belongsToMany(Child::class, 'site_child', 'site_id', 'child_id')->using(AuditedMembership::class);
     }
 
     /** @return HasMany<CollectionRequest, $this> */

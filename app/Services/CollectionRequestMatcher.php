@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\ChildCollectionState;
 use App\CollectionRequestMatchPerson;
 use App\CollectionRequestStatus;
 use App\Models\CollectionRequest;
@@ -15,14 +16,15 @@ class CollectionRequestMatcher
     public function __construct(
         private readonly CollectionRequestCandidateFinder $finder,
         private readonly CollectionRequestNameScorer $scorer,
+        private readonly CollectionDuplicateChecks $duplicates,
     ) {}
 
     public function match(int $requestId, CollectionRequestMatchPerson $person): void
     {
         $request = DB::transaction(function () use ($requestId, $person): ?CollectionRequest {
-            $request = CollectionRequest::query()->lockForUpdate()->find($requestId);
+            $request = $this->lockRequest($requestId);
 
-            if (! $request || $request->status->isComplete() || $request->getAttribute($person->statusColumn())->isComplete()) {
+            if (! $request || $request->collection_state !== ChildCollectionState::NeedsChecking || $request->status->isComplete() || $request->getAttribute($person->statusColumn())->isComplete()) {
                 return null;
             }
 
@@ -54,9 +56,9 @@ class CollectionRequestMatcher
         usort($candidates, fn (array $left, array $right): int => ($right['confidence'] <=> $left['confidence']) ?: ($left['id'] <=> $right['id']));
 
         DB::transaction(function () use ($requestId, $person, $name, $candidates, $result): void {
-            $request = CollectionRequest::query()->lockForUpdate()->find($requestId);
+            $request = $this->lockRequest($requestId);
 
-            if (! $request || $request->status->isComplete() || $request->getAttribute($person->statusColumn())->isComplete()) {
+            if (! $request || $request->collection_state !== ChildCollectionState::NeedsChecking || $request->status->isComplete() || $request->getAttribute($person->statusColumn())->isComplete()) {
                 return;
             }
 
@@ -70,7 +72,16 @@ class CollectionRequestMatcher
             throw_if($request->getAttribute($person->nameColumn()) !== $name, UnexpectedValueException::class, 'The submitted name changed while matching was in progress.');
 
             $qualified = array_values(array_filter($candidates, fn (array $candidate): bool => $candidate['confidence'] >= $request->matching_threshold));
-            $accepted = count($qualified) === 1 && ! $result['truncated'];
+            $candidateChildId = $person === CollectionRequestMatchPerson::Child && count($qualified) === 1 ? $qualified[0]['id'] : null;
+            if ($candidateChildId !== null && $candidateChildId < 1) {
+                throw new UnexpectedValueException('A matched child must have a valid record ID.');
+            }
+            $duplicate = $candidateChildId !== null && $this->duplicates->conflicts($request, $candidateChildId);
+            $accepted = count($qualified) === 1 && ! $result['truncated'] && ! $duplicate;
+            if ($person === CollectionRequestMatchPerson::Child) {
+                $request->duplicate_child_match = $duplicate;
+                $request->duplicate_child_id = $duplicate ? $candidateChildId : null;
+            }
             $prefix = $person->value;
 
             $request->setAttribute($prefix.'_match_candidates', $candidates);
@@ -86,15 +97,16 @@ class CollectionRequestMatcher
 
             $request->setAttribute($person->statusColumn(), $status);
             $this->saveOverallStatus($request);
+            $this->duplicates->refresh($request);
         });
     }
 
     public function fail(int $requestId, CollectionRequestMatchPerson $person): void
     {
         DB::transaction(function () use ($requestId, $person): void {
-            $request = CollectionRequest::query()->lockForUpdate()->find($requestId);
+            $request = $this->lockRequest($requestId);
 
-            if (! $request || $request->status->isComplete() || $request->getAttribute($person->statusColumn())->isComplete()) {
+            if (! $request || $request->collection_state !== ChildCollectionState::NeedsChecking || $request->status->isComplete() || $request->getAttribute($person->statusColumn())->isComplete()) {
                 return;
             }
 
@@ -133,6 +145,14 @@ class CollectionRequestMatcher
         }
 
         $request->save();
+    }
+
+    private function lockRequest(int $requestId): ?CollectionRequest
+    {
+        $parentId = CollectionRequest::query()->whereKey($requestId)->value('parent_request_id');
+        $root = CollectionRequest::query()->whereKey($parentId ?? $requestId)->lockForUpdate()->first();
+
+        return $parentId === null ? $root : CollectionRequest::query()->lockForUpdate()->find($requestId);
     }
 
     private function isSiteMember(CollectionRequest $request, CollectionRequestMatchPerson $person, int $personId): bool

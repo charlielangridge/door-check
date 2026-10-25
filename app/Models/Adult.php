@@ -7,18 +7,22 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\Pivot;
+use OwenIt\Auditing\Auditable;
 use Spatie\Image\Enums\Fit;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
+/** @property list<string>|null $also_known_as */
 #[Fillable([
     'name',
     'date_of_birth',
+    'also_known_as',
 ])]
-class Adult extends Model implements HasMedia
+class Adult extends Model implements \OwenIt\Auditing\Contracts\Auditable, HasMedia
 {
+    use Auditable;
+
     /** @use HasFactory<AdultFactory> */
     use HasFactory;
 
@@ -41,20 +45,21 @@ class Adult extends Model implements HasMedia
     }
 
     protected $casts = [
+        'also_known_as' => 'array',
         'date_of_birth' => 'date',
     ];
 
     /**
-     * @return BelongsToMany<Child, $this, Pivot>
+     * @return BelongsToMany<Child, $this, AuditedMembership>
      */
     public function children(): BelongsToMany
     {
-        return $this->belongsToMany(Child::class, 'adult_child', 'adult_id', 'child_id')->withPivot('relationship');
+        return $this->belongsToMany(Child::class, 'adult_child', 'adult_id', 'child_id')->using(AuditedMembership::class)->withPivot('relationship');
     }
 
-    /** @return BelongsToMany<Site, $this> */
+    /** @return BelongsToMany<Site, $this, AuditedMembership> */
     public function sites(): BelongsToMany
     {
-        return $this->belongsToMany(Site::class, 'site_adult', 'adult_id', 'site_id');
+        return $this->belongsToMany(Site::class, 'site_adult', 'adult_id', 'site_id')->using(AuditedMembership::class);
     }
 }

@@ -12,7 +12,7 @@ use RuntimeException;
 
 class CollectionRequestCandidateFinder
 {
-    /** @return array{candidates: list<array{id: int, name: string, similarity: float}>, truncated: bool} */
+    /** @return array{candidates: list<array{id: int, name: string, similarity: float, aliases?: list<string>}>, truncated: bool} */
     public function find(CollectionRequestMatchPerson $person, string $name, int $siteId): array
     {
         $name = Str::lower(Str::squish($name));
@@ -36,16 +36,18 @@ class CollectionRequestCandidateFinder
             foreach ($variants as $variant) {
                 $scores[] = 'similarity(lower(name), ?)';
                 $scores[] = 'word_similarity(?, lower(name))';
-                array_push($bindings, $variant, $variant);
+                $scores[] = "COALESCE((SELECT MAX(GREATEST(similarity(lower(alias), ?), word_similarity(?, lower(alias)))) FROM jsonb_array_elements_text(COALESCE(also_known_as, '[]'::jsonb)) AS aliases(alias)), 0)";
+                array_push($bindings, $variant, $variant, $variant, $variant);
             }
 
             $results = $person->modelClass()::query()
                 ->whereHas('sites', fn (Builder $query): Builder => $query->whereKey($siteId))
-                ->select(['id', 'name'])
+                ->select(['id', 'name', 'also_known_as'])
                 ->selectRaw('greatest('.implode(', ', $scores).') AS similarity', $bindings)
                 ->where(function (Builder $query) use ($variants): void {
                     foreach ($variants as $variant) {
                         $query->orWhereRaw('(lower(name) % ? OR ? <% lower(name))', [$variant, $variant]);
+                        $query->orWhereRaw("EXISTS (SELECT 1 FROM jsonb_array_elements_text(COALESCE(also_known_as, '[]'::jsonb)) AS aliases(alias) WHERE lower(alias) % ? OR ? <% lower(alias))", [$variant, $variant]);
                     }
                 })
                 ->orderByDesc('similarity')
@@ -58,6 +60,7 @@ class CollectionRequestCandidateFinder
                     'id' => (int) $model->getKey(),
                     'name' => $model->name,
                     'similarity' => (float) $model->getAttribute('similarity'),
+                    ...($model->also_known_as ? ['aliases' => $model->also_known_as] : []),
                 ])->all()),
                 'truncated' => $results->count() > $limit,
             ];

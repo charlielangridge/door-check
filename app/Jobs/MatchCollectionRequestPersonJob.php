@@ -3,6 +3,8 @@
 namespace App\Jobs;
 
 use App\CollectionRequestMatchPerson;
+use App\Models\CollectionRequest;
+use App\Services\CollectionAudit;
 use App\Services\CollectionRequestMatcher;
 use DateTimeInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -47,7 +49,16 @@ abstract class MatchCollectionRequestPersonJob implements ShouldQueue
 
     public function handle(CollectionRequestMatcher $matcher): void
     {
-        $matcher->match($this->collectionRequestId, $this->person());
+        try {
+            $matcher->match($this->collectionRequestId, $this->person());
+        } catch (Throwable $exception) {
+            $request = CollectionRequest::query()->find($this->collectionRequestId);
+            if ($request !== null) {
+                app(CollectionAudit::class)->record('automatic_matching_attempt_failed', $request, ['person' => $this->person()->value, 'exception' => $exception::class]);
+            }
+
+            throw $exception;
+        }
     }
 
     public function failed(?Throwable $exception): void

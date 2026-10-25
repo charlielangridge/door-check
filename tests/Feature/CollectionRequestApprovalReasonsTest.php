@@ -13,7 +13,7 @@ use Livewire\Livewire;
 
 beforeEach(function (): void {
     Filament::setCurrentPanel(Filament::getPanel('admin'));
-    $this->actingAs(User::factory()->create());
+    $this->actingAs(User::factory()->administrator()->create());
 });
 
 test('approval explains when the matched child is not linked to the matched adult', function (): void {

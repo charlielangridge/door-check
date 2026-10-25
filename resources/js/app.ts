@@ -1,8 +1,7 @@
 import { createInertiaApp } from '@inertiajs/vue3';
+import { ModalRoot } from '@inertiaui/modal-vue';
+import { createApp, h } from 'vue';
 import { initializeTheme } from '@/composables/useAppearance';
-import AppLayout from '@/layouts/AppLayout.vue';
-import AuthLayout from '@/layouts/AuthLayout.vue';
-import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { initializeFlashToast } from '@/lib/flashToast';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
@@ -10,7 +9,11 @@ const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
 
-    withApp: (app) => {
+    setup: ({ el, App, props, plugin }) => {
+        const app = createApp({
+            render: () => h(ModalRoot, () => h(App, props)),
+        });
+        app.use(plugin);
         app.directive('focus', {
             mounted: (el: HTMLElement, shouldFocus) => {
                 if (shouldFocus.value !== false) {
@@ -18,6 +21,7 @@ void createInertiaApp({
                 }
             },
         });
+        if (el) app.mount(el);
     },
     progress: {
         color: '#4B5563',

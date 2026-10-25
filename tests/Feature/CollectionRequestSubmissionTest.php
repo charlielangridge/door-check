@@ -34,7 +34,7 @@ test('guests can submit without evidence and the URL determines the site', funct
         'adult_id' => 123,
         'requested_child_id' => 456,
         'status' => 'matched',
-    ])->assertRedirectToRoute('collection-request.create', $site)
+    ])->assertRedirectToRoute('collection-status.show', CollectionRequest::sole())
         ->assertSessionHasNoErrors();
 
     $this->assertDatabaseCount('collection_request', 1);
@@ -66,7 +66,7 @@ test('a requester photo and precise GPS coordinates are attached to the request'
         'requester_longitude' => -0.12775812,
         'photo' => UploadedFile::fake()->image('requester.jpg', 500, 500),
         'camera_available' => true,
-    ])->assertRedirectToRoute('collection-request.create', $site)
+    ])->assertRedirectToRoute('collection-status.show', CollectionRequest::sole())
         ->assertSessionHasNoErrors();
 
     $request = CollectionRequest::sole();
@@ -193,7 +193,7 @@ test('GPS can be saved without a photo when the camera is unavailable', function
         'camera_available' => $available,
         'requester_latitude' => 51.50735123,
         'requester_longitude' => -0.12775812,
-    ])->assertRedirectToRoute('collection-request.create', $site)
+    ])->assertRedirectToRoute('collection-status.show', CollectionRequest::sole())
         ->assertSessionHasNoErrors();
 
     $request = CollectionRequest::sole();

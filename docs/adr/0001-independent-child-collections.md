@@ -1,0 +1,3 @@
+# Independent child collections within one adult request
+
+A collecting adult may add related children to the same active request, so each child has independent checks, relationship exceptions, preparation, collection, and cancellation outcomes rather than one shared outcome for the family. Keep one adult identity for the request, locked after the first child's checks are confirmed; a relationship exception applies only to the individual child collection and never creates a permanent adult-child relationship. Matching remains distinct from staff review and physical handover, and the request leaves the active board only when every child is collected or cancelled.

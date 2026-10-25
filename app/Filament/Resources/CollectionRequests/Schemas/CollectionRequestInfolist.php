@@ -21,6 +21,17 @@ class CollectionRequestInfolist
                     ->columnSpanFull()
                     ->schema([
                         TextEntry::make('status')->badge(),
+                        TextEntry::make('collection_state')->label('Collection progress')->state(fn (CollectionRequest $record): string => $record->collection_state->label())->badge(),
+                        TextEntry::make('parent_request_id')->label('Parent request')->placeholder('Original request'),
+                        TextEntry::make('reviewed_at')->dateTime(timezone: config('staff-collections.timezone'))->placeholder('Not reviewed'),
+                        TextEntry::make('preparing_at')->dateTime(timezone: config('staff-collections.timezone'))->placeholder('Not preparing'),
+                        TextEntry::make('collected_at')->dateTime(timezone: config('staff-collections.timezone'))->placeholder('Not collected'),
+                        TextEntry::make('cancelled_at')->dateTime(timezone: config('staff-collections.timezone'))->placeholder('Not cancelled'),
+                        TextEntry::make('relationship_override_reason')->label('Relationship exception')->placeholder('None')->columnSpanFull(),
+                        TextEntry::make('photo_verification_reason')->label('Missing-photo check')->state(fn (CollectionRequest $record): ?string => $record->photo_verification_reason?->label())->placeholder('None'),
+                        TextEntry::make('photo_verification_notes')->placeholder('None'),
+                        TextEntry::make('cancellation_reason')->state(fn (CollectionRequest $record): ?string => $record->cancellation_reason?->label())->placeholder('None'),
+                        TextEntry::make('cancellation_notes')->placeholder('None'),
                         TextEntry::make('site.name')->label('Site'),
                         TextEntry::make('approval_reasons')
                             ->label('Why approval is needed')

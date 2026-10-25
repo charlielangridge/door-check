@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\CollectionRequests\Tables;
 
+use App\Filament\Resources\CollectionRequests\CollectionRequestResource;
 use App\Models\CollectionRequest;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -17,12 +18,14 @@ class CollectionRequestsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->poll(10000)
+            ->poll('10s')
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['adult', 'requestedChild', 'site']))
             ->columns([
                 TextColumn::make('uuid')->label('UUID')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('requested_at')->dateTime(),
                 TextColumn::make('status')->badge()->sortable(),
+                TextColumn::make('collection_state')->label('Collection progress')->state(fn (CollectionRequest $record): string => $record->collection_state->label())->badge(),
+                TextColumn::make('parent_request_id')->label('Parent request')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('site.name')->label('Site')->sortable(),
                 TextColumn::make('requester_name_text')
                     ->label('Requester Name')
@@ -39,6 +42,7 @@ class CollectionRequestsTable
             ])
             ->recordActions([
                 ViewAction::make(),
+                CollectionRequestResource::reopenAction(),
                 EditAction::make(),
             ])
             ->toolbarActions([

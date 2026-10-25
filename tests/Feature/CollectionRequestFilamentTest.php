@@ -14,7 +14,7 @@ use Livewire\Livewire;
 
 beforeEach(function (): void {
     Filament::setCurrentPanel(Filament::getPanel('admin'));
-    $this->actingAs(User::factory()->create());
+    $this->actingAs(User::factory()->administrator()->create());
 });
 
 test('the show page displays submitted details matched people and saved JEV checks', function (): void {
