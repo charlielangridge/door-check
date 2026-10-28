@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use App\Services\CollectionAudit;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 use Spatie\Permission\PermissionRegistrar;
 
 class AuditedAccessAssignment extends Pivot
 {
+    /** @use HasFactory<Factory<static>> */
     use HasFactory;
 
     protected static function booted(): void

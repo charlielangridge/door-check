@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Rector\Config\RectorConfig;
 use RectorLaravel\Rector\Class_\FillablePropertyToFillableAttributeRector;
 use RectorLaravel\Rector\FuncCall\RemoveDumpDataDeadCodeRector;
+use RectorLaravel\Rector\If_\ThrowIfRector;
 use RectorLaravel\Set\LaravelSetList;
 
 return RectorConfig::configure()
@@ -16,6 +17,7 @@ return RectorConfig::configure()
         __DIR__.'/tests',
     ])
     ->withSkip([
+        ThrowIfRector::class => [__DIR__.'/app/Services/StaffCollectionWorkflow.php'],
         __DIR__.'/bootstrap',
         __DIR__.'/vendor',
         __DIR__.'/storage',

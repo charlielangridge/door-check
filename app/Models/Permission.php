@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use OwenIt\Auditing\Auditable;
@@ -11,6 +12,8 @@ use Spatie\Permission\PermissionRegistrar;
 class Permission extends BasePermission implements \OwenIt\Auditing\Contracts\Auditable
 {
     use Auditable;
+
+    /** @use HasFactory<Factory<static>> */
     use HasFactory;
 
     /** @return BelongsToMany<Role, $this, AuditedAccessAssignment> */

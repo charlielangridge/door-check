@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\CollectionRecordChanges;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\DB;
 use OwenIt\Auditing\Auditable;
@@ -11,6 +12,8 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 class AuditedMedia extends Media implements \OwenIt\Auditing\Contracts\Auditable
 {
     use Auditable;
+
+    /** @use HasFactory<Factory<static>> */
     use HasFactory;
 
     protected static function booted(): void

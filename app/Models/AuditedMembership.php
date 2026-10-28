@@ -4,12 +4,14 @@ namespace App\Models;
 
 use App\Services\CollectionAudit;
 use App\Services\CollectionRecordChanges;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Support\Facades\DB;
 
 class AuditedMembership extends Pivot
 {
+    /** @use HasFactory<Factory<static>> */
     use HasFactory;
 
     protected static function booted(): void

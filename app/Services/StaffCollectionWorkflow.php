@@ -54,7 +54,9 @@ class StaffCollectionWorkflow
 
             return $entry->refresh();
         }, 3);
-        throw_if($result instanceof ValidationException, $result);
+        if ($result instanceof ValidationException) {
+            throw $result;
+        }
 
         return $result;
     }
