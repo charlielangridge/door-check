@@ -54,7 +54,7 @@ class CollectionRequestResource extends Resource
             ->modalDescription('Return this child to Needs checking. Staff must review the collection again. The original outcome will remain in the audit trail.')
             ->schema([Textarea::make('reason')->label('Correction explanation')->required()->maxLength(2000)])
             ->action(function (CollectionRequest $record, array $data): void {
-                app(StaffCollectionWorkflow::class)->reopen($record, auth()->user(), $data['reason']);
+                resolve(StaffCollectionWorkflow::class)->reopen($record, auth()->user(), $data['reason']);
             });
     }
 

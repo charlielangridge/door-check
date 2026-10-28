@@ -41,7 +41,7 @@ class StaffUsersRelationManager extends RelationManager
                     ->recordSelect(fn (Select $select): Select => $select->label('Staff account')->helperText('Staff may be assigned to several venues. Other venue assignments will be preserved.'))
                     ->recordSelectOptionsQuery(fn (Builder $query): Builder => $query->whereHas('roles', fn (Builder $query): Builder => $query->where('name', 'staff')->where('guard_name', 'web')))
                     ->using(function (?User $record): void {
-                        if ($record === null || ! app(StaffVenueAssignments::class)->assign($record, $this->staffVenue())) {
+                        if ($record === null || ! resolve(StaffVenueAssignments::class)->assign($record, $this->staffVenue())) {
                             throw ValidationException::withMessages(['recordId' => 'This staff account is no longer eligible or is already assigned. Refresh and try again.']);
                         }
                     })
@@ -49,7 +49,7 @@ class StaffUsersRelationManager extends RelationManager
             ])
             ->pushRecordActions([
                 DetachAction::make()->label('Unassign')->modalDescription('Remove access to this venue only. Any other venue assignments will be preserved.')
-                    ->using(fn (User $record): bool => app(StaffVenueAssignments::class)->unassign($record, $this->staffVenue()))
+                    ->using(fn (User $record): bool => resolve(StaffVenueAssignments::class)->unassign($record, $this->staffVenue()))
                     ->failureNotificationTitle('This staff account has changed. Refresh and try again.'),
             ]);
     }
@@ -57,9 +57,7 @@ class StaffUsersRelationManager extends RelationManager
     private function staffVenue(): Site
     {
         $site = $this->getOwnerRecord();
-        if (! $site instanceof Site) {
-            abort(404);
-        }
+        abort_unless($site instanceof Site, 404);
 
         return $site;
     }

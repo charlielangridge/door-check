@@ -8,6 +8,7 @@ use App\Models\Adult;
 use App\Models\Child;
 use App\Models\CollectionRequest;
 use App\Models\Site;
+use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class CollectionRecordChanges
@@ -19,7 +20,7 @@ class CollectionRecordChanges
             $record instanceof Adult => $query->where('adult_id', $record->getKey()),
             $record instanceof Child => $query->where('requested_child_id', $record->getKey()),
             $record instanceof Site => $query->where('site_id', $record->getKey()),
-            $record instanceof CollectionRequest => $query->where(fn ($query) => $query->whereKey($record->groupId())->orWhere('parent_request_id', $record->groupId())),
+            $record instanceof CollectionRequest => $query->where(fn (Builder $query) => $query->whereKey($record->groupId())->orWhere('parent_request_id', $record->groupId())),
             default => null,
         };
         if (! $record instanceof Adult && ! $record instanceof Child && ! $record instanceof Site && ! $record instanceof CollectionRequest) {

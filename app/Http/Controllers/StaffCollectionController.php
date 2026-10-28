@@ -14,6 +14,7 @@ use App\Services\CollectionAudit;
 use App\Services\CollectionBoardData;
 use App\Services\CollectionDuplicateChecks;
 use App\Services\StaffCollectionWorkflow;
+use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,10 +30,10 @@ class StaffCollectionController extends Controller
         $sites = $sites->orderBy('name')->get(['sites.id', 'sites.uuid', 'sites.name']);
         abort_if($sites->isEmpty(), 403, 'No staff venues are assigned to this account.');
         if ($sites->count() === 1) {
-            return redirect()->route('staff.board', $sites->first()->uuid);
+            return to_route('staff.board', $sites->first()->uuid);
         }
 
-        return Inertia::render('Staff/Sites', ['sites' => $sites->map(fn(Site $site): array => $site->only(['name', 'uuid']))]);
+        return Inertia::render('Staff/Sites', ['sites' => $sites->map(fn (Site $site): array => $site->only(['name', 'uuid']))]);
     }
 
     public function board(Request $request, Site $site, CollectionBoardData $data, CollectionAudit $audit): Response
@@ -59,8 +60,8 @@ class StaffCollectionController extends Controller
 
         return (new Modal('Staff/Collection', [
             'collection' => $data->details($collectionRequest),
-            'cancellation_reasons' => collect(CollectionCancellationReason::cases())->map(fn(CollectionCancellationReason $reason): array => ['value' => $reason->value, 'label' => $reason->label()]),
-            'photo_reasons' => collect(PhotoVerificationReason::cases())->map(fn(PhotoVerificationReason $reason): array => ['value' => $reason->value, 'label' => $reason->label()]),
+            'cancellation_reasons' => collect(CollectionCancellationReason::cases())->map(fn (CollectionCancellationReason $reason): array => ['value' => $reason->value, 'label' => $reason->label()]),
+            'photo_reasons' => collect(PhotoVerificationReason::cases())->map(fn (PhotoVerificationReason $reason): array => ['value' => $reason->value, 'label' => $reason->label()]),
         ]))->baseRoute('staff.board', $site->uuid);
     }
 
@@ -92,8 +93,8 @@ class StaffCollectionController extends Controller
     {
         $this->authorizeVenue($request, $site, $collectionRequest);
         $input = $request->validate(['adult_id' => ['required', 'integer'], 'child_id' => ['required', 'integer']]);
-        $adult = Adult::query()->whereHas('sites', fn($query) => $query->whereKey($collectionRequest->site_id))->whereKey($request->integer('adult_id'))->firstOrFail();
-        $child = Child::query()->whereHas('sites', fn($query) => $query->whereKey($collectionRequest->site_id))->whereKey($request->integer('child_id'))->firstOrFail();
+        $adult = Adult::query()->whereHas('sites', fn (Builder $query) => $query->whereKey($collectionRequest->site_id))->whereKey($request->integer('adult_id'))->firstOrFail();
+        $child = Child::query()->whereHas('sites', fn (Builder $query) => $query->whereKey($collectionRequest->site_id))->whereKey($request->integer('child_id'))->firstOrFail();
         $root = CollectionRequest::query()->findOrFail($collectionRequest->groupId());
         $relationship = $adult->children()->whereKey($child->getKey())->first()?->pivot?->getAttribute('relationship');
         $audit->record('draft_identity_checked', $collectionRequest, $input);

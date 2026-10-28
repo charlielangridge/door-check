@@ -4,11 +4,14 @@ namespace App\Models;
 
 use App\Services\CollectionAudit;
 use App\Services\CollectionRecordChanges;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Support\Facades\DB;
 
 class AuditedMembership extends Pivot
 {
+    use HasFactory;
+
     protected static function booted(): void
     {
         static::created(fn (self $pivot) => $pivot->recordActivity('relationship_attached'));
@@ -19,8 +22,8 @@ class AuditedMembership extends Pivot
     private function recordActivity(string $event): void
     {
         if ($this->pivotParent !== null) {
-            app(CollectionAudit::class)->record($event, $this->pivotParent, ['table' => $this->getTable(), ...$this->getAttributes()]);
-            DB::afterCommit(fn () => app(CollectionRecordChanges::class)->changed($this->pivotParent));
+            resolve(CollectionAudit::class)->record($event, $this->pivotParent, ['table' => $this->getTable(), ...$this->getAttributes()]);
+            DB::afterCommit(fn () => resolve(CollectionRecordChanges::class)->changed($this->pivotParent));
         }
     }
 }

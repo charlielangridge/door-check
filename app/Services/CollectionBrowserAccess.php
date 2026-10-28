@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\CollectionRequest;
+use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Http\Request;
 
 class CollectionBrowserAccess
@@ -23,7 +24,7 @@ class CollectionBrowserAccess
             return false;
         }
 
-        return $collection->adult()->whereHas('sites', fn ($query) => $query->whereKey($collection->site_id))->exists()
+        return $collection->adult()->whereHas('sites', fn (Builder $query) => $query->whereKey($collection->site_id))->exists()
             && $collection->adult->children()->whereHas('sites', fn ($query) => $query->whereKey($collection->site_id))->count() > 1;
     }
 }

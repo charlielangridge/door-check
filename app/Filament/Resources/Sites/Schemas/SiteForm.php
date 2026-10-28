@@ -8,7 +8,6 @@ use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 class SiteForm
@@ -19,7 +18,7 @@ class SiteForm
             ->components([
                 TextInput::make('name')
                     ->live(onBlur: true)
-                    ->afterStateUpdated(function (Get $get, Set $set, ?string $old, ?string $state) {
+                    ->afterStateUpdated(function (Get $get, Set $set, ?string $old, ?string $state): void {
                         if (($get('slug') ?? '') !== Str::slug($old)) {
                             return;
                         }
@@ -29,7 +28,7 @@ class SiteForm
                 TextInput::make('slug')
                     ->required()
                     ->maxLength(255)
-                    ->unique(Site::class, 'slug', fn($record) => $record),
+                    ->unique(Site::class, 'slug', fn ($record) => $record),
                 SpatieMediaLibraryFileUpload::make('logo')
                     ->collection('logo'),
             ]);

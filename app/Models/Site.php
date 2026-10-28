@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Database\Factories\SiteFactory;
-
 use Dyrynda\Database\Support\GeneratesUuid;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,7 +19,7 @@ use Spatie\Sluggable\Attributes\Sluggable;
 #[Fillable([
     'name',
     'uuid',
-    'slug'
+    'slug',
 ])]
 
 #[Sluggable(from: 'name', to: 'slug', onUpdate: false)]

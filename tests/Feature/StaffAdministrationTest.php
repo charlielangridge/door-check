@@ -114,7 +114,7 @@ test('multiple assignments preserve existing venues and unassignment removes onl
     $firstVenue = Site::factory()->create();
     $secondVenue = Site::factory()->create();
     $staleStaff = $staff->fresh();
-    $assignments = app(StaffVenueAssignments::class);
+    $assignments = resolve(StaffVenueAssignments::class);
 
     expect($assignments->assign($staff, $firstVenue))->toBeTrue();
     expect($assignments->assign($staleStaff, $secondVenue))->toBeTrue();

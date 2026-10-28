@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\CollectionRecordChanges;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\DB;
 use OwenIt\Auditing\Auditable;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -10,13 +11,14 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 class AuditedMedia extends Media implements \OwenIt\Auditing\Contracts\Auditable
 {
     use Auditable;
+    use HasFactory;
 
     protected static function booted(): void
     {
         $invalidate = function (self $media): void {
             $person = $media->model;
             if ($person !== null) {
-                DB::afterCommit(fn () => app(CollectionRecordChanges::class)->changed($person));
+                DB::afterCommit(fn () => resolve(CollectionRecordChanges::class)->changed($person));
             }
         };
         static::saved($invalidate);

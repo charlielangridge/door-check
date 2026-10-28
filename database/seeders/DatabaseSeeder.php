@@ -6,14 +6,10 @@ use App\Models\Adult;
 use App\Models\Child;
 use App\Models\Site;
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
 {
-
-
     /**
      * Seed the application's database.
      */

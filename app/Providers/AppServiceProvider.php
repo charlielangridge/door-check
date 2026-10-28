@@ -47,7 +47,7 @@ class AppServiceProvider extends ServiceProvider
 
         foreach ([Adult::class, Child::class, Site::class] as $modelClass) {
             $modelClass::updated(function (Model $model): void {
-                DB::afterCommit(fn () => app(CollectionRecordChanges::class)->changed($model));
+                DB::afterCommit(fn () => resolve(CollectionRecordChanges::class)->changed($model));
             });
         }
 
@@ -65,13 +65,13 @@ class AppServiceProvider extends ServiceProvider
                 request()->session()->put('staff_signed_in_at', now()->timestamp);
                 Cookie::queue(cookie('staff_kiosk', '1', (int) config('staff-collections.session_minutes'), httpOnly: true, sameSite: 'lax'));
             }
-            app(CollectionAudit::class)->record('login', $event->user, [], $event->user);
+            resolve(CollectionAudit::class)->record('login', $event->user, [], $event->user);
         });
 
         Event::listen(Logout::class, function (Logout $event): void {
             Cookie::queue(Cookie::forget('staff_kiosk'));
             if ($event->user instanceof User) {
-                app(CollectionAudit::class)->record('logout', $event->user, [], $event->user);
+                resolve(CollectionAudit::class)->record('logout', $event->user, [], $event->user);
             }
         });
 
@@ -80,13 +80,13 @@ class AppServiceProvider extends ServiceProvider
             if (! $subject->exists) {
                 $subject->id = 0;
             }
-            app(CollectionAudit::class)->record('login_failed', $subject, ['guard' => $event->guard]);
+            resolve(CollectionAudit::class)->record('login_failed', $subject, ['guard' => $event->guard]);
         });
 
         foreach ([RoleAttachedEvent::class, RoleDetachedEvent::class, PermissionAttachedEvent::class, PermissionDetachedEvent::class] as $eventClass) {
             Event::listen($eventClass, function (RoleAttachedEvent|RoleDetachedEvent|PermissionAttachedEvent|PermissionDetachedEvent $event): void {
                 $assignments = $event instanceof RoleAttachedEvent || $event instanceof RoleDetachedEvent ? $event->rolesOrIds : $event->permissionsOrIds;
-                app(CollectionAudit::class)->record(Str::snake(class_basename($event)), $event->model, ['assignments' => $assignments]);
+                resolve(CollectionAudit::class)->record(Str::snake(class_basename($event)), $event->model, ['assignments' => $assignments]);
             });
         }
     }

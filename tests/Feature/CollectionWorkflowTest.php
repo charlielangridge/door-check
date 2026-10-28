@@ -199,7 +199,7 @@ test('an admin correction reopens the child and preserves the original outcome i
     $fixture = collectionWorkflowFixture(['collection_state' => ChildCollectionState::Collected, 'adult_locked_at' => now(), 'reviewed_at' => now(), 'collected_at' => now(), 'closed_at' => now()]);
     $admin = User::factory()->administrator()->create();
 
-    app(StaffCollectionWorkflow::class)->reopen($fixture['request'], $admin, 'Marked collected before the actual handover.');
+    resolve(StaffCollectionWorkflow::class)->reopen($fixture['request'], $admin, 'Marked collected before the actual handover.');
 
     expect($fixture['request']->fresh())->collection_state->toBe(ChildCollectionState::NeedsChecking)
         ->reviewed_at->toBeNull()->collected_at->toBeNull()->adult_locked_at->toBeNull();

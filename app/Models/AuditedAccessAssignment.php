@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Services\CollectionAudit;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 use Spatie\Permission\PermissionRegistrar;
 
 class AuditedAccessAssignment extends Pivot
 {
+    use HasFactory;
+
     protected static function booted(): void
     {
         static::created(fn (self $pivot) => $pivot->recordAssignment('relationship_attached'));
@@ -16,10 +19,10 @@ class AuditedAccessAssignment extends Pivot
 
     private function recordAssignment(string $event): void
     {
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        resolve(PermissionRegistrar::class)->forgetCachedPermissions();
 
         if ($this->pivotParent !== null) {
-            app(CollectionAudit::class)->record($event, $this->pivotParent, ['table' => $this->getTable(), ...$this->getAttributes()]);
+            resolve(CollectionAudit::class)->record($event, $this->pivotParent, ['table' => $this->getTable(), ...$this->getAttributes()]);
         }
     }
 }

@@ -39,7 +39,7 @@ test('staff timelines include relevant membership and photo changes without expo
     $site->children()->detach($child);
     $removedMembership = Audit::latest('id')->first()->id;
 
-    $events = app(CollectionBoardData::class)->timeline($root)['events'];
+    $events = resolve(CollectionBoardData::class)->timeline($root)['events'];
 
     expect(array_column($events, 'id'))->toContain($included, $photoAudit->id, $removedMembership)
         ->not->toContain($excludedMembership, $excludedRelationship);

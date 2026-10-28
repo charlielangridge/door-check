@@ -73,9 +73,7 @@ class CollectionRequestMatcher
 
             $qualified = array_values(array_filter($candidates, fn (array $candidate): bool => $candidate['confidence'] >= $request->matching_threshold));
             $candidateChildId = $person === CollectionRequestMatchPerson::Child && count($qualified) === 1 ? $qualified[0]['id'] : null;
-            if ($candidateChildId !== null && $candidateChildId < 1) {
-                throw new UnexpectedValueException('A matched child must have a valid record ID.');
-            }
+            throw_if($candidateChildId !== null && $candidateChildId < 1, UnexpectedValueException::class, 'A matched child must have a valid record ID.');
             $duplicate = $candidateChildId !== null && $this->duplicates->conflicts($request, $candidateChildId);
             $accepted = count($qualified) === 1 && ! $result['truncated'] && ! $duplicate;
             if ($person === CollectionRequestMatchPerson::Child) {

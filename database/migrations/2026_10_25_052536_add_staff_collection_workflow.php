@@ -77,7 +77,7 @@ return new class extends Migration
         if ($superAdminId !== null) {
             DB::table('role_has_permissions')->insertOrIgnore(['role_id' => $superAdminId, 'permission_id' => $permissionId]);
         }
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        resolve(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
     /**
@@ -102,6 +102,6 @@ return new class extends Migration
         DB::table('model_has_roles')->where('role_id', $roleId)->delete();
         DB::table('roles')->where('id', $roleId)->delete();
         DB::table('permissions')->where('id', $permissionId)->delete();
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        resolve(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 };

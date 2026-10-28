@@ -54,7 +54,7 @@ abstract class MatchCollectionRequestPersonJob implements ShouldQueue
         } catch (Throwable $exception) {
             $request = CollectionRequest::query()->find($this->collectionRequestId);
             if ($request !== null) {
-                app(CollectionAudit::class)->record('automatic_matching_attempt_failed', $request, ['person' => $this->person()->value, 'exception' => $exception::class]);
+                resolve(CollectionAudit::class)->record('automatic_matching_attempt_failed', $request, ['person' => $this->person()->value, 'exception' => $exception::class]);
             }
 
             throw $exception;

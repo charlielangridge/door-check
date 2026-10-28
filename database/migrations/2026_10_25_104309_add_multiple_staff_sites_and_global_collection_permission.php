@@ -27,7 +27,7 @@ return new class extends Migration
         if ($roleId !== null) {
             DB::table('role_has_permissions')->insertOrIgnore(['role_id' => $roleId, 'permission_id' => $permissionId]);
         }
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        resolve(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
     /**
@@ -35,9 +35,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        if (DB::table('staff_site_user')->select('user_id')->groupBy('user_id')->havingRaw('COUNT(*) > 1')->exists()) {
-            throw new RuntimeException('Remove additional staff venue assignments before rolling back to single-venue accounts.');
-        }
+        throw_if(DB::table('staff_site_user')->select('user_id')->groupBy('user_id')->havingRaw('COUNT(*) > 1')->exists(), RuntimeException::class, 'Remove additional staff venue assignments before rolling back to single-venue accounts.');
         Schema::table('users', fn (Blueprint $table) => $table->foreignId('staff_site_id')->nullable()->constrained('sites')->restrictOnDelete());
         foreach (DB::table('staff_site_user')->orderBy('user_id')->cursor() as $membership) {
             DB::table('users')->where('id', $membership->user_id)->update(['staff_site_id' => $membership->site_id]);
@@ -47,6 +45,6 @@ return new class extends Migration
         DB::table('role_has_permissions')->where('permission_id', $permissionId)->delete();
         DB::table('model_has_permissions')->where('permission_id', $permissionId)->delete();
         DB::table('permissions')->where('id', $permissionId)->delete();
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        resolve(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 };
