@@ -340,14 +340,31 @@ function photoFailed(kind: string): void {
     >
         <div class="bg-background text-foreground">
             <header
-                class="flex items-start justify-between gap-5 border-b p-6 lg:px-8"
+                class="flex items-start justify-between gap-4 border-b px-5 py-4"
             >
                 <div>
                     <p class="text-sm text-muted-foreground">
                         {{ record.site_name }} · Collection request
                     </p>
-                    <h1 class="mt-1 text-2xl font-semibold sm:text-3xl">
-                        {{ record.adult?.name ?? record.submitted_adult_name }}
+                    <h1
+                        class="mt-1 text-xl leading-snug font-semibold sm:text-2xl"
+                    >
+                        {{ adult?.name ?? record.submitted_adult_name }} is here
+                        to collect
+                        {{ child?.name ?? entry.submitted_name }}.<span
+                            v-if="
+                                entry.state === 'needs_checking'
+                                    ? preview?.relationship
+                                    : entry.relationship
+                            "
+                            class="font-normal"
+                        >
+                            ({{
+                                entry.state === 'needs_checking'
+                                    ? preview?.relationship
+                                    : entry.relationship
+                            }})</span
+                        >
                     </h1>
                 </div>
                 <Button
@@ -358,7 +375,7 @@ function photoFailed(kind: string): void {
                     ><X class="size-5" />Close</Button
                 >
             </header>
-            <div class="space-y-6 p-5 lg:p-8">
+            <div class="space-y-3 p-4 sm:px-5">
                 <div
                     v-if="error || stale"
                     role="alert"
@@ -399,7 +416,7 @@ function photoFailed(kind: string): void {
                         v-for="item in record.children"
                         :key="item.uuid"
                         type="button"
-                        class="min-h-16 rounded-xl border-2 px-5 py-3 text-left"
+                        class="min-h-12 rounded-xl border-2 px-4 py-2 text-left"
                         :class="
                             item.uuid === activeUuid
                                 ? 'border-sky-600 bg-sky-50 text-sky-950 dark:bg-sky-950 dark:text-sky-50'
@@ -429,11 +446,84 @@ function photoFailed(kind: string): void {
                         adult and child manually.
                     </p>
                 </div>
-                <section class="space-y-4">
+                <div
+                    class="grid grid-cols-3 gap-3"
+                    aria-label="Identity photos"
+                >
+                    <figure class="rounded-xl border bg-muted/30 p-3">
+                        <figcaption class="mb-2 text-sm font-medium">
+                            Adult · stored
+                        </figcaption>
+                        <img
+                            v-if="
+                                adult?.photo &&
+                                !photoFailures.includes('stored_adult')
+                            "
+                            :src="adult.photo"
+                            :alt="`Stored photo of ${adult.name}`"
+                            class="mx-auto h-32 w-full rounded-lg object-contain sm:h-36"
+                            @error="photoFailed('stored_adult')"
+                        />
+                        <div
+                            v-else
+                            class="flex h-32 flex-col items-center justify-center gap-2 text-sm text-muted-foreground sm:h-36"
+                        >
+                            <UserRound class="size-8" /><span
+                                >Photo unavailable</span
+                            >
+                        </div>
+                    </figure>
+                    <figure class="rounded-xl border bg-muted/30 p-3">
+                        <figcaption class="mb-2 text-sm font-medium">
+                            Adult · now
+                        </figcaption>
+                        <img
+                            v-if="
+                                record.requester_photo &&
+                                !photoFailures.includes('current_adult')
+                            "
+                            :src="record.requester_photo"
+                            alt="Adult photo submitted with this request"
+                            class="mx-auto h-32 w-full rounded-lg object-contain sm:h-36"
+                            @error="photoFailed('current_adult')"
+                        />
+                        <div
+                            v-else
+                            class="flex h-32 flex-col items-center justify-center gap-2 text-sm text-muted-foreground sm:h-36"
+                        >
+                            <UserRound class="size-8" /><span
+                                >Photo unavailable</span
+                            >
+                        </div>
+                    </figure>
+                    <figure class="rounded-xl border bg-muted/30 p-3">
+                        <figcaption class="mb-2 text-sm font-medium">
+                            Child
+                        </figcaption>
+                        <img
+                            v-if="
+                                child?.photo && !photoFailures.includes('child')
+                            "
+                            :src="child.photo"
+                            :alt="`Photo of ${child.name}`"
+                            class="mx-auto h-32 w-full rounded-lg object-contain sm:h-36"
+                            @error="photoFailed('child')"
+                        />
+                        <div
+                            v-else
+                            class="flex h-32 flex-col items-center justify-center gap-2 text-sm text-muted-foreground sm:h-36"
+                        >
+                            <UserRound class="size-8" /><span
+                                >Photo unavailable</span
+                            >
+                        </div>
+                    </figure>
+                </div>
+                <section class="space-y-3">
                     <div
                         class="flex flex-wrap items-center justify-between gap-3"
                     >
-                        <h2 class="text-xl font-semibold">Collecting adult</h2>
+                        <h2 class="font-medium">Adult match</h2>
                         <span
                             v-if="record.adult_locked"
                             class="flex items-center gap-2 text-sm text-muted-foreground"
@@ -453,17 +543,6 @@ function photoFailed(kind: string): void {
                             }}</Button
                         >
                     </div>
-                    <p class="text-sm text-muted-foreground">
-                        Submitted name: {{ record.submitted_adult_name
-                        }}<span v-if="record.adult_match_confidence != null">
-                            · Automatic name confidence
-                            {{
-                                Math.round(record.adult_match_confidence)
-                            }}%</span
-                        ><span v-if="record.threshold != null">
-                            · Threshold {{ record.threshold }}%</span
-                        >
-                    </p>
                     <PersonMatchPicker
                         v-if="
                             entry.state === 'needs_checking' &&
@@ -476,73 +555,17 @@ function photoFailed(kind: string): void {
                         :entry-uuid="entry.uuid"
                         :site-uuid="record.site_uuid"
                     />
-                    <div class="grid grid-cols-2 gap-4">
-                        <figure class="rounded-2xl border bg-muted/30 p-4">
-                            <figcaption class="mb-3 font-medium">
-                                Stored adult photo<span
-                                    v-if="adult"
-                                    class="block text-sm text-muted-foreground"
-                                    >{{ adult.name }}</span
-                                >
-                            </figcaption>
-                            <img
-                                v-if="
-                                    adult?.photo &&
-                                    !photoFailures.includes('stored_adult')
-                                "
-                                :src="adult.photo"
-                                :alt="`Stored photo of ${adult.name}`"
-                                class="mx-auto aspect-square max-h-64 rounded-xl object-contain"
-                                @error="photoFailed('stored_adult')"
-                            />
-                            <div
-                                v-else
-                                class="flex min-h-40 flex-col items-center justify-center gap-3 text-muted-foreground"
-                            >
-                                <UserRound class="size-14" /><span
-                                    >Photo unavailable</span
-                                >
-                            </div>
-                        </figure>
-                        <figure class="rounded-2xl border bg-muted/30 p-4">
-                            <figcaption class="mb-3 font-medium">
-                                Current adult photo<span
-                                    class="block text-sm text-muted-foreground"
-                                    >Taken with this request</span
-                                >
-                            </figcaption>
-                            <img
-                                v-if="
-                                    record.requester_photo &&
-                                    !photoFailures.includes('current_adult')
-                                "
-                                :src="record.requester_photo"
-                                alt="Adult photo submitted with this request"
-                                class="mx-auto aspect-square max-h-64 rounded-xl object-contain"
-                                @error="photoFailed('current_adult')"
-                            />
-                            <div
-                                v-else
-                                class="flex min-h-40 flex-col items-center justify-center gap-3 text-muted-foreground"
-                            >
-                                <UserRound class="size-14" /><span
-                                    >Photo unavailable</span
-                                >
-                            </div>
-                        </figure>
-                    </div>
                 </section>
-                <section class="space-y-4 border-t pt-6">
+                <section class="space-y-3">
                     <div
                         class="flex flex-wrap items-center justify-between gap-3"
                     >
-                        <div>
-                            <p class="text-sm text-muted-foreground">
-                                {{ entry.label }}
-                            </p>
-                            <h2 class="text-2xl font-semibold">
-                                {{ child?.name ?? entry.submitted_name }}
-                            </h2>
+                        <div class="flex items-center gap-3">
+                            <h2 class="font-medium">Child match</h2>
+                            <span
+                                class="rounded-full bg-muted px-3 py-1 text-sm"
+                                >{{ entry.label }}</span
+                            >
                         </div>
                         <Button
                             v-if="child && entry.state === 'needs_checking'"
@@ -556,13 +579,6 @@ function photoFailed(kind: string): void {
                             }}</Button
                         >
                     </div>
-                    <p class="text-sm text-muted-foreground">
-                        Submitted child name: {{ entry.submitted_name
-                        }}<span v-if="entry.match_confidence != null">
-                            · Automatic name confidence
-                            {{ Math.round(entry.match_confidence) }}%</span
-                        >
-                    </p>
                     <div
                         v-if="entry.duplicate || preview?.duplicate"
                         role="alert"
@@ -599,216 +615,158 @@ function photoFailed(kind: string): void {
                         :entry-uuid="entry.uuid"
                         :site-uuid="record.site_uuid"
                     />
-                    <div class="grid gap-5 sm:grid-cols-[14rem_1fr]">
-                        <figure class="rounded-2xl border bg-muted/30 p-4">
-                            <figcaption class="mb-3 font-medium">
-                                Child photo
-                            </figcaption>
-                            <img
-                                v-if="
-                                    child?.photo &&
-                                    !photoFailures.includes('child')
-                                "
-                                :src="child.photo"
-                                :alt="`Photo of ${child.name}`"
-                                class="mx-auto aspect-square max-h-64 rounded-xl object-contain"
-                                @error="photoFailed('child')"
-                            />
-                            <div
-                                v-else
-                                class="flex min-h-40 flex-col items-center justify-center gap-3 text-muted-foreground"
+                    <div class="space-y-3">
+                        <p
+                            v-if="
+                                entry.state !== 'needs_checking' &&
+                                entry.relationship_override_reason
+                            "
+                            class="rounded-xl bg-amber-50 p-4 text-amber-950"
+                        >
+                            Relationship exception:
+                            {{ entry.relationship_override_reason }}
+                        </p>
+                        <div
+                            v-if="entry.state === 'needs_checking'"
+                            class="space-y-3"
+                        >
+                            <p
+                                v-if="checking"
+                                class="flex items-center gap-2 text-muted-foreground"
                             >
-                                <UserRound class="size-14" /><span
-                                    >Photo unavailable</span
-                                >
+                                <LoaderCircle
+                                    class="size-5 motion-safe:animate-spin"
+                                />Checking relationship and photos…
+                            </p>
+                            <div
+                                v-if="preview && !preview.relationship"
+                                class="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950"
+                            >
+                                <Label for="relationship-override"
+                                    >No recorded relationship. Explain why this
+                                    adult may collect this child.</Label
+                                ><textarea
+                                    id="relationship-override"
+                                    v-model="draft.relationship_override_reason"
+                                    class="min-h-28 w-full rounded-lg border bg-background p-3 text-base text-foreground"
+                                    maxlength="2000"
+                                />
+                                <p class="text-sm">
+                                    This exception applies only to this child in
+                                    this request.
+                                </p>
                             </div>
-                        </figure>
-                        <div class="space-y-4">
-                            <p
-                                v-if="adult && child"
-                                class="rounded-2xl bg-sky-50 p-5 text-xl leading-relaxed text-sky-950 dark:bg-sky-950 dark:text-sky-50"
-                            >
-                                <strong>{{ adult.name }}</strong> is here to
-                                collect <strong>{{ child.name }}</strong
-                                >.
-                            </p>
-                            <p
-                                v-if="
-                                    entry.state !== 'needs_checking' &&
-                                    entry.relationship
-                                "
-                                class="text-lg"
-                            >
-                                Recorded relationship:
-                                <strong>{{ entry.relationship }}</strong>
-                            </p>
-                            <p
-                                v-if="
-                                    entry.state !== 'needs_checking' &&
-                                    entry.relationship_override_reason
-                                "
-                                class="rounded-xl bg-amber-50 p-4 text-amber-950"
-                            >
-                                Relationship exception:
-                                {{ entry.relationship_override_reason }}
-                            </p>
+                            <div v-if="changedMatch" class="grid gap-2">
+                                <Label for="match-change"
+                                    >Why are you changing the automatic
+                                    match?</Label
+                                ><textarea
+                                    id="match-change"
+                                    v-model="draft.match_change_reason"
+                                    class="min-h-16 w-full rounded-lg border bg-background p-3"
+                                    maxlength="2000"
+                                />
+                            </div>
                             <div
-                                v-if="entry.state === 'needs_checking'"
-                                class="space-y-4"
+                                v-if="preview && missingPhotos.length"
+                                class="grid gap-3 rounded-xl border border-amber-300 p-4"
                             >
-                                <p
-                                    v-if="checking"
-                                    class="flex items-center gap-2 text-muted-foreground"
+                                <Label for="photo-verification"
+                                    >Photo unavailable. How did you check
+                                    identity in person?</Label
+                                ><select
+                                    id="photo-verification"
+                                    v-model="draft.photo_verification_reason"
+                                    class="min-h-14 w-full rounded-lg border bg-background px-3 text-base"
                                 >
-                                    <LoaderCircle
-                                        class="size-5 motion-safe:animate-spin"
-                                    />Checking relationship and photos…
-                                </p>
-                                <p
-                                    v-if="preview?.relationship"
-                                    class="rounded-xl bg-emerald-50 p-4 font-medium text-emerald-950"
-                                >
-                                    Recorded relationship:
-                                    {{ preview.relationship }}
-                                </p>
-                                <div
-                                    v-if="preview && !preview.relationship"
-                                    class="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950"
-                                >
-                                    <Label for="relationship-override"
-                                        >No recorded relationship. Explain why
-                                        this adult may collect this
-                                        child.</Label
-                                    ><textarea
-                                        id="relationship-override"
-                                        v-model="
-                                            draft.relationship_override_reason
-                                        "
-                                        class="min-h-28 w-full rounded-lg border bg-background p-3 text-base text-foreground"
-                                        maxlength="2000"
-                                    />
-                                    <p class="text-sm">
-                                        This exception applies only to this
-                                        child in this request.
-                                    </p>
-                                </div>
-                                <div v-if="changedMatch" class="grid gap-2">
-                                    <Label for="match-change"
-                                        >Why are you changing the automatic
-                                        match?</Label
-                                    ><textarea
-                                        id="match-change"
-                                        v-model="draft.match_change_reason"
-                                        class="min-h-24 w-full rounded-lg border bg-background p-3"
-                                        maxlength="2000"
-                                    />
-                                </div>
-                                <div
-                                    v-if="preview && missingPhotos.length"
-                                    class="grid gap-3 rounded-xl border border-amber-300 p-4"
-                                >
-                                    <Label for="photo-verification"
-                                        >Photo unavailable. How did you check
-                                        identity in person?</Label
-                                    ><select
-                                        id="photo-verification"
-                                        v-model="
-                                            draft.photo_verification_reason
-                                        "
-                                        class="min-h-14 w-full rounded-lg border bg-background px-3 text-base"
+                                    <option value="">
+                                        Choose a verification reason
+                                    </option>
+                                    <option
+                                        v-for="reason in photo_reasons"
+                                        :key="reason.value"
+                                        :value="reason.value"
                                     >
-                                        <option value="">
-                                            Choose a verification reason
-                                        </option>
-                                        <option
-                                            v-for="reason in photo_reasons"
-                                            :key="reason.value"
-                                            :value="reason.value"
-                                        >
-                                            {{ reason.label }}
-                                        </option></select
-                                    ><Label for="photo-notes">{{
-                                        draft.photo_verification_reason ===
-                                        'other'
-                                            ? 'Explanation (required)'
-                                            : 'Notes (optional)'
-                                    }}</Label
-                                    ><textarea
-                                        id="photo-notes"
-                                        v-model="draft.photo_verification_notes"
-                                        class="min-h-24 w-full rounded-lg border bg-background p-3"
-                                        maxlength="2000"
-                                    />
-                                </div>
-                                <p class="text-sm text-muted-foreground">
-                                    Confirm only after checking the identities,
-                                    photos and relationship above.
-                                </p>
-                                <Button
-                                    class="min-h-16 w-full bg-sky-700 text-lg text-white hover:bg-sky-800"
-                                    :disabled="!canReview"
-                                    @click="save('review')"
-                                    ><Check class="size-6" />{{
-                                        busy
-                                            ? 'Saving checks…'
-                                            : 'Confirm checks'
-                                    }}</Button
-                                >
+                                        {{ reason.label }}
+                                    </option></select
+                                ><Label for="photo-notes">{{
+                                    draft.photo_verification_reason === 'other'
+                                        ? 'Explanation (required)'
+                                        : 'Notes (optional)'
+                                }}</Label
+                                ><textarea
+                                    id="photo-notes"
+                                    v-model="draft.photo_verification_notes"
+                                    class="min-h-16 w-full rounded-lg border bg-background p-3"
+                                    maxlength="2000"
+                                />
                             </div>
+                            <p class="text-sm text-muted-foreground">
+                                Confirm only after checking the identities,
+                                photos and relationship above.
+                            </p>
                             <Button
-                                v-if="entry.state === 'reviewed'"
-                                class="min-h-16 w-full bg-sky-700 text-lg text-white hover:bg-sky-800"
-                                :disabled="busy || stale"
-                                @click="save('prepare')"
-                                ><ChevronRight class="size-6" />{{
-                                    busy ? 'Saving…' : 'Prepare child'
+                                class="min-h-12 w-full bg-sky-700 text-lg text-white hover:bg-sky-800"
+                                :disabled="!canReview"
+                                @click="save('review')"
+                                ><Check class="size-6" />{{
+                                    busy ? 'Saving checks…' : 'Confirm checks'
                                 }}</Button
                             >
-                            <div
-                                v-if="entry.state === 'preparing'"
-                                class="space-y-3"
-                            >
-                                <p class="text-muted-foreground">
-                                    Mark collected only after physically handing
-                                    the child over to this adult.
-                                </p>
-                                <Button
-                                    class="min-h-16 w-full bg-emerald-700 text-lg text-white hover:bg-emerald-800"
-                                    :disabled="busy || stale"
-                                    @click="save('collect')"
-                                    ><Check class="size-6" />{{
-                                        busy ? 'Saving…' : 'Child collected'
-                                    }}</Button
-                                >
-                            </div>
-                            <p
-                                v-if="entry.state === 'collected'"
-                                class="rounded-xl bg-emerald-50 p-5 text-lg font-semibold text-emerald-950"
-                            >
-                                Child collected. This record is read-only.
+                        </div>
+                        <Button
+                            v-if="entry.state === 'reviewed'"
+                            class="min-h-12 w-full bg-sky-700 text-lg text-white hover:bg-sky-800"
+                            :disabled="busy || stale"
+                            @click="save('prepare')"
+                            ><ChevronRight class="size-6" />{{
+                                busy ? 'Saving…' : 'Prepare child'
+                            }}</Button
+                        >
+                        <div
+                            v-if="entry.state === 'preparing'"
+                            class="space-y-3"
+                        >
+                            <p class="text-muted-foreground">
+                                Mark collected only after physically handing the
+                                child over to this adult.
                             </p>
-                            <div
-                                v-if="entry.state === 'cancelled'"
-                                class="space-y-2 rounded-xl bg-muted p-5"
+                            <Button
+                                class="min-h-12 w-full bg-emerald-700 text-lg text-white hover:bg-emerald-800"
+                                :disabled="busy || stale"
+                                @click="save('collect')"
+                                ><Check class="size-6" />{{
+                                    busy ? 'Saving…' : 'Child collected'
+                                }}</Button
                             >
-                                <p class="text-lg font-semibold">
-                                    Collection cancelled
-                                </p>
-                                <p>{{ entry.cancellation_reason }}</p>
-                                <p v-if="entry.cancellation_notes">
-                                    {{ entry.cancellation_notes }}
-                                </p>
-                                <p class="text-sm text-muted-foreground">
-                                    This record is read-only. Corrections are
-                                    made in Filament.
-                                </p>
-                            </div>
+                        </div>
+                        <p
+                            v-if="entry.state === 'collected'"
+                            class="rounded-xl bg-emerald-50 p-5 text-lg font-semibold text-emerald-950"
+                        >
+                            Child collected. This record is read-only.
+                        </p>
+                        <div
+                            v-if="entry.state === 'cancelled'"
+                            class="space-y-2 rounded-xl bg-muted p-5"
+                        >
+                            <p class="text-lg font-semibold">
+                                Collection cancelled
+                            </p>
+                            <p>{{ entry.cancellation_reason }}</p>
+                            <p v-if="entry.cancellation_notes">
+                                {{ entry.cancellation_notes }}
+                            </p>
+                            <p class="text-sm text-muted-foreground">
+                                This record is read-only. Corrections are made
+                                in Filament.
+                            </p>
                         </div>
                     </div>
                 </section>
                 <section
                     v-if="!['collected', 'cancelled'].includes(entry.state)"
-                    class="border-t pt-5"
+                    class="border-t pt-3"
                 >
                     <Button
                         v-if="!cancelling"
@@ -881,67 +839,101 @@ function photoFailed(kind: string): void {
                         </div>
                     </div>
                 </section>
-                <details class="rounded-2xl border p-5">
-                    <summary
-                        class="min-h-10 cursor-pointer text-lg font-semibold"
-                    >
-                        Request timeline
-                    </summary>
-                    <ol class="mt-5 grid gap-4">
-                        <li
-                            v-for="activity in timeline.events"
-                            :key="activity.id"
-                            class="border-l-2 border-sky-200 pl-4"
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <details class="rounded-xl border px-4 py-2">
+                        <summary
+                            class="flex min-h-11 cursor-pointer items-center font-medium"
                         >
-                            <p class="font-medium capitalize">
-                                {{ activity.event.replaceAll('_', ' ') }}
-                            </p>
-                            <p class="text-sm text-muted-foreground">
-                                {{ activity.actor }} ·
-                                {{
-                                    activity.at
-                                        ? new Date(activity.at).toLocaleString(
-                                              'en-GB',
-                                              { timeZone: 'Europe/London' },
-                                          )
-                                        : ''
-                                }}
-                            </p>
-                            <details
-                                v-if="Object.keys(activity.new_values).length"
-                                class="mt-1"
+                            Submitted names &amp; matching details
+                        </summary>
+                        <p class="text-sm text-muted-foreground">
+                            Submitted name: {{ record.submitted_adult_name
+                            }}<span
+                                v-if="record.adult_match_confidence != null"
                             >
-                                <summary
-                                    class="cursor-pointer text-sm text-muted-foreground"
+                                · Automatic name confidence
+                                {{
+                                    Math.round(record.adult_match_confidence)
+                                }}%</span
+                            ><span v-if="record.threshold != null">
+                                · Threshold {{ record.threshold }}%</span
+                            >
+                        </p>
+                        <p class="text-sm text-muted-foreground">
+                            Submitted child name: {{ entry.submitted_name
+                            }}<span v-if="entry.match_confidence != null">
+                                · Automatic name confidence
+                                {{ Math.round(entry.match_confidence) }}%</span
+                            >
+                        </p>
+                    </details>
+                    <details class="rounded-xl border px-4 py-2">
+                        <summary
+                            class="flex min-h-11 cursor-pointer items-center font-medium"
+                        >
+                            Request timeline
+                        </summary>
+                        <ol class="mt-5 grid gap-4">
+                            <li
+                                v-for="activity in timeline.events"
+                                :key="activity.id"
+                                class="border-l-2 border-sky-200 pl-4"
+                            >
+                                <p class="font-medium capitalize">
+                                    {{ activity.event.replaceAll('_', ' ') }}
+                                </p>
+                                <p class="text-sm text-muted-foreground">
+                                    {{ activity.actor }} ·
+                                    {{
+                                        activity.at
+                                            ? new Date(
+                                                  activity.at,
+                                              ).toLocaleString('en-GB', {
+                                                  timeZone: 'Europe/London',
+                                              })
+                                            : ''
+                                    }}
+                                </p>
+                                <details
+                                    v-if="
+                                        Object.keys(activity.new_values).length
+                                    "
+                                    class="mt-1"
                                 >
-                                    View recorded details
-                                </summary>
-                                <pre
-                                    class="mt-2 max-h-60 overflow-auto rounded-lg bg-muted p-3 text-xs whitespace-pre-wrap"
-                                    >{{
-                                        JSON.stringify(
-                                            {
-                                                before: activity.old_values,
-                                                after: activity.new_values,
-                                            },
-                                            null,
-                                            2,
-                                        )
-                                    }}</pre>
-                            </details>
-                        </li>
-                    </ol>
-                    <Button
-                        v-if="timeline.next_cursor"
-                        variant="outline"
-                        class="mt-5 min-h-12"
-                        :disabled="timelineBusy"
-                        @click="earlierActivity"
-                        >{{
-                            timelineBusy ? 'Loading…' : 'Load earlier activity'
-                        }}</Button
-                    >
-                </details>
+                                    <summary
+                                        class="cursor-pointer text-sm text-muted-foreground"
+                                    >
+                                        View recorded details
+                                    </summary>
+                                    <pre
+                                        class="mt-2 max-h-60 overflow-auto rounded-lg bg-muted p-3 text-xs whitespace-pre-wrap"
+                                        >{{
+                                            JSON.stringify(
+                                                {
+                                                    before: activity.old_values,
+                                                    after: activity.new_values,
+                                                },
+                                                null,
+                                                2,
+                                            )
+                                        }}</pre>
+                                </details>
+                            </li>
+                        </ol>
+                        <Button
+                            v-if="timeline.next_cursor"
+                            variant="outline"
+                            class="mt-5 min-h-12"
+                            :disabled="timelineBusy"
+                            @click="earlierActivity"
+                            >{{
+                                timelineBusy
+                                    ? 'Loading…'
+                                    : 'Load earlier activity'
+                            }}</Button
+                        >
+                    </details>
+                </div>
             </div>
         </div>
     </Modal>

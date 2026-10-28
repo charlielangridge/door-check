@@ -30,7 +30,8 @@ class Child extends Model implements \OwenIt\Auditing\Contracts\Auditable, HasMe
 
     public function registerMediaCollections(): void
     {
-        $this->addMediaCollection('logo')
+        $this->addMediaCollection('photo')
+            ->singleFile()
             ->registerMediaConversions(function (?Media $media = null): void {
 
                 $this->addMediaConversion('large')

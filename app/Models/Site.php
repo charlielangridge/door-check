@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\SiteFactory;
-use Dyrynda\Database\Support\BindsOnUuid;
+
 use Dyrynda\Database\Support\GeneratesUuid;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,28 +15,33 @@ use Spatie\Image\Enums\Fit;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Spatie\Sluggable\Attributes\Sluggable;
 
 #[Fillable([
     'name',
     'uuid',
+    'slug'
 ])]
+
+#[Sluggable(from: 'name', to: 'slug', onUpdate: false)]
 class Site extends Model implements \OwenIt\Auditing\Contracts\Auditable, HasMedia
 {
     use Auditable;
-    use BindsOnUuid, GeneratesUuid;
+    use GeneratesUuid;
     use InteractsWithMedia;
 
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('logo')
+            ->singleFile()
             ->registerMediaConversions(function (?Media $media = null): void {
 
                 $this->addMediaConversion('large')
-                    ->fit(Fit::Fill, 1000, 1000);
+                    ->fit(Fit::Fill, 1000, 1000)->format('webp');
                 $this->addMediaConversion('medium')
-                    ->fit(Fit::Fill, 500, 500);
-                $this->addMediaConversion('small')->fit(Fit::Fill, 250, 250);
-                $this->addMediaConversion('thumb')->fit(Fit::Fill, 100, 100);
+                    ->fit(Fit::Fill, 500, 500)->format('webp');
+                $this->addMediaConversion('small')->fit(Fit::Fill, 250, 250)->format('webp');
+                $this->addMediaConversion('thumb')->fit(Fit::Fill, 100, 100)->format('webp');
 
             });
 

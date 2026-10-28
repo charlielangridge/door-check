@@ -14,7 +14,7 @@ Route::get('admin/person-photos/{media}', [StaffMediaController::class, 'showFor
 
 Route::get('staff', [StaffCollectionController::class, 'index'])->middleware(['auth', 'verified', EnsureStaffSession::class])->name('staff.index');
 
-Route::middleware(['auth', 'verified', EnsureStaffSession::class])->prefix('staff/{site:uuid}')->name('staff.')->group(function (): void {
+Route::middleware(['auth', 'verified', EnsureStaffSession::class])->prefix('staff/{site:slug}')->name('staff.')->group(function (): void {
     Route::get('/', [StaffCollectionController::class, 'board'])->name('board');
     Route::get('/media/{media}', [StaffMediaController::class, 'show'])->name('media.show');
     Route::get('/collections/{collectionRequest:uuid}', [StaffCollectionController::class, 'show'])->name('collections.show');
@@ -31,8 +31,8 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
 
 require __DIR__.'/settings.php';
 
-Route::get('collection-request/{site:uuid}', [CollectionRequestController::class, 'create'])->name('collection-request.create');
-Route::post('collection-request/{site:uuid}', [CollectionRequestController::class, 'store'])
+Route::get('collection-request/{site:slug}', [CollectionRequestController::class, 'create'])->name('collection-request.create');
+Route::post('collection-request/{site:slug}', [CollectionRequestController::class, 'store'])
     ->middleware(HandlePrecognitiveRequests::class)
     ->name('collection-request.store');
 

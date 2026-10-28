@@ -1,10 +1,11 @@
 <?php
 
-namespace App\Filament\Resources\Children\Tables;
+namespace App\Filament\Resources\Children\Tables\Tables;
 
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -14,8 +15,12 @@ class ChildrenTable
     {
         return $table
             ->columns([
+                SpatieMediaLibraryImageColumn::make('photo')
+                    ->collection('photo')
+                    ->conversion('thumb'),
                 TextColumn::make('name')
                     ->searchable(),
+                TextColumn::make('also_known_as')->searchable(),
                 TextColumn::make('date_of_birth')
                     ->date()
                     ->sortable(),

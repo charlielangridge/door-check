@@ -8,7 +8,7 @@ use App\Filament\Resources\Children\Pages\ListChildren;
 use App\Filament\Resources\Children\RelationManagers\AdultsRelationManager;
 use App\Filament\Resources\Children\RelationManagers\SitesRelationManager;
 use App\Filament\Resources\Children\Schemas\ChildForm;
-use App\Filament\Resources\Children\Tables\ChildrenTable;
+use App\Filament\Resources\Children\Tables\Tables\ChildrenTable;
 use App\Models\Child;
 use BackedEnum;
 use Filament\Resources\Resource;

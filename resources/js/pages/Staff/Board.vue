@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Form, Head, Link, router, usePoll } from '@inertiajs/vue3';
-import { ModalLink } from '@inertiaui/modal-vue';
+import {Form, Head, Link, router, usePoll} from '@inertiajs/vue3';
+import {ModalLink} from '@inertiaui/modal-vue';
 import {
     ArrowDown,
     Clock,
@@ -10,14 +10,14 @@ import {
     Volume2,
     VolumeX,
 } from '@lucide/vue';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { useStaffCollectionRoutes } from '@/composables/useStaffCollectionRoutes';
-import { index as adminSites } from '@/routes/filament/admin/resources/sites';
-import { logout } from '@/routes';
-import { index as staffSites } from '@/routes/staff';
-import { Button } from '@/components/ui/button';
-import { useCollectionChannel } from '@/composables/useCollectionChannel';
-import type { CollectionState } from '@/types/collections';
+import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue';
+import {useStaffCollectionRoutes} from '@/composables/useStaffCollectionRoutes';
+import {index as adminSites} from '@/routes/filament/admin/resources/sites';
+import {logout} from '@/routes';
+import {index as staffSites} from '@/routes/staff';
+import {Button} from '@/components/ui/button';
+import {useCollectionChannel} from '@/composables/useCollectionChannel';
+import type {CollectionState} from '@/types/collections';
 
 interface BoardRequest {
     uuid: string;
@@ -32,14 +32,15 @@ interface BoardRequest {
         needs_matching: boolean;
     }[];
 }
+
 const props = defineProps<{
-    site: { id: number; name: string; uuid: string };
+    site: { id: number; name: string; slug: string, logo: string | null };
     requests: BoardRequest[];
     history: boolean;
     is_admin: boolean;
     can_choose_site: boolean;
 }>();
-const { board: index, show } = useStaffCollectionRoutes(props.site.uuid);
+const {board: index, show} = useStaffCollectionRoutes(props.site.slug);
 const currentTime = ref(Date.now());
 const sound = ref(false);
 const highlighted = ref<string[]>([]);
@@ -57,7 +58,7 @@ const childCount = computed(() =>
         0,
     ),
 );
-const { live, configured } = useCollectionChannel(
+const {live, configured} = useCollectionChannel(
     `staff.${props.site.id}`,
     () => reconnect(),
 );
@@ -73,7 +74,7 @@ usePoll(
             return false;
         },
     },
-    { keepAlive: true },
+    {keepAlive: true},
 );
 
 function waitingSince(value: string): string {
@@ -84,8 +85,8 @@ function waitingSince(value: string): string {
     return minutes < 1
         ? 'Just arrived'
         : minutes < 60
-          ? `${minutes} min waiting`
-          : `${Math.floor(minutes / 60)}h ${minutes % 60}m waiting`;
+            ? `${minutes} min waiting`
+            : `${Math.floor(minutes / 60)}h ${minutes % 60}m waiting`;
 }
 
 async function toggleSound(): Promise<void> {
@@ -139,8 +140,9 @@ watch(
 function jumpToNew(): void {
     document
         .getElementById(`request-${highlighted.value[0]}`)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        ?.scrollIntoView({behavior: 'smooth', block: 'center'});
 }
+
 function reconnect(): void {
     router.reload({
         only: ['requests', 'site', 'can_choose_site', 'is_admin'],
@@ -153,12 +155,15 @@ function reconnect(): void {
         },
     });
 }
+
 function visibilityChanged(): void {
     if (document.visibilityState === 'visible') reconnect();
 }
+
 function offline(): void {
     reachable.value = false;
 }
+
 watch(
     () => props.site.id,
     () => window.location.reload(),
@@ -186,16 +191,12 @@ onBeforeUnmount(() => {
     <main
         class="min-h-screen bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-50"
     >
-        <Head title="Staff collection board" />
+        <Head title="Staff collection board"/>
         <header
             class="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-5 border-b bg-background/95 px-6 py-5 backdrop-blur lg:px-10"
         >
             <div class="flex items-center gap-4">
-                <div
-                    class="flex size-14 items-center justify-center rounded-2xl bg-sky-700 text-white"
-                >
-                    <UsersRound class="size-8" />
-                </div>
+                <img v-if="site.logo" class="max-h-18" :src="site.logo" :alt="site.name"/>
                 <div>
                     <p class="text-sm font-medium text-muted-foreground">
                         {{ site.name }}
@@ -211,39 +212,55 @@ onBeforeUnmount(() => {
                 class="flex flex-wrap items-center gap-3"
                 aria-label="Staff controls"
             >
-                <Button
-                    v-if="is_admin"
-                    as-child
-                    variant="outline"
-                    class="min-h-12"
-                >
-                    <a :href="adminSites.url()">Back to admin</a>
-                </Button>
-                <Button
-                    v-if="can_choose_site"
-                    as-child
-                    variant="outline"
-                    class="min-h-12"
-                    ><Link :href="staffSites()">Change venue</Link></Button
-                >
+<!--                <Button-->
+<!--                    v-if="is_admin"-->
+<!--                    as-child-->
+<!--                    variant="outline"-->
+<!--                    class="min-h-12"-->
+<!--                >-->
+<!--                    <a :href="adminSites.url()">Back to admin</a>-->
+<!--                </Button>-->
+<!--                <Button-->
+<!--                    v-if="can_choose_site"-->
+<!--                    as-child-->
+<!--                    variant="outline"-->
+<!--                    class="min-h-12"-->
+<!--                >-->
+<!--                    <Link :href="staffSites()">Change venue</Link>-->
+<!--                </Button-->
+<!--                >-->
                 <Button variant="outline" class="min-h-12" @click="toggleSound"
-                    ><Volume2 v-if="sound" class="size-5" /><VolumeX
+                >
+                    <Volume2 v-if="sound" class="size-5"/>
+                    <VolumeX
                         v-else
                         class="size-5"
-                    />{{ sound ? 'Mute sound' : 'Enable sound' }}</Button
+                    />
+                    {{ sound ? 'Mute sound' : 'Enable sound' }}
+                </Button
                 >
                 <Button as-child variant="outline" class="min-h-12"
-                    ><Link
+                >
+                    <Link
                         :href="index({ query: { history: history ? 0 : 1 } })"
-                        ><History class="size-5" />{{
+                    >
+                        <History class="size-5"/>
+                        {{
                             history ? 'Active board' : 'Today’s history'
-                        }}</Link
-                    ></Button
+                        }}
+                    </Link
+                    >
+                </Button
                 >
                 <Form v-bind="logout.form()"
-                    ><Button type="submit" variant="ghost" class="min-h-12"
-                        ><LogOut class="size-5" />Log out</Button
-                    ></Form
+                >
+                    <Button type="submit" variant="ghost" class="min-h-12"
+                    >
+                        <LogOut class="size-5"/>
+                        Log out
+                    </Button
+                    >
+                </Form
                 >
             </nav>
         </header>
@@ -254,21 +271,23 @@ onBeforeUnmount(() => {
                 class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-amber-400 bg-amber-50 p-5 text-amber-950"
             >
                 <span class="font-semibold"
-                    >Connection lost. These details may be out of date.</span
-                ><Button variant="outline" @click="reconnect">Reconnect</Button>
+                >Connection lost. These details may be out of date.</span
+                >
+                <Button variant="outline" @click="reconnect">Reconnect</Button>
             </div>
             <div class="flex flex-wrap items-center justify-between gap-4">
                 <p class="text-lg font-medium">
                     {{ requests.length }} {{ history ? 'finished' : 'active' }}
-                    {{ requests.length === 1 ? 'request' : 'requests'
+                    {{
+                        requests.length === 1 ? 'request' : 'requests'
                     }}<span
-                        v-if="!history"
-                        class="font-normal text-muted-foreground"
-                    >
+                    v-if="!history"
+                    class="font-normal text-muted-foreground"
+                >
                         · {{ childCount }}
                         {{ childCount === 1 ? 'child' : 'children' }}
                         waiting</span
-                    >
+                >
                 </p>
                 <p
                     class="flex items-center gap-2 text-sm text-muted-foreground"
@@ -280,8 +299,8 @@ onBeforeUnmount(() => {
                         live
                             ? 'Live updates connected'
                             : configured
-                              ? 'Reconnecting live updates · checking regularly'
-                              : 'Checking for updates regularly'
+                                ? 'Reconnecting live updates · checking regularly'
+                                : 'Checking for updates regularly'
                     }}
                 </p>
             </div>
@@ -289,7 +308,10 @@ onBeforeUnmount(() => {
                 v-if="highlighted.length"
                 class="min-h-12 bg-sky-700 text-white hover:bg-sky-800"
                 @click="jumpToNew"
-                ><ArrowDown class="size-5" />New collection request</Button
+            >
+                <ArrowDown class="size-5"/>
+                New collection request
+            </Button
             >
             <section
                 v-if="requests.length"
@@ -318,7 +340,8 @@ onBeforeUnmount(() => {
                         <p
                             class="mt-2 flex items-center gap-2 text-sm text-muted-foreground"
                         >
-                            <Clock class="size-4" />{{
+                            <Clock class="size-4"/>
+                            {{
                                 waitingSince(request.requested_at)
                             }}
                         </p>
@@ -336,11 +359,11 @@ onBeforeUnmount(() => {
                             class="flex flex-wrap items-center justify-between gap-2 border-t pt-3"
                         >
                             <span class="text-lg font-medium">{{
-                                child.name
-                            }}</span
+                                    child.name
+                                }}</span
                             ><span
-                                class="rounded-full px-3 py-1.5 text-sm font-semibold"
-                                :class="
+                            class="rounded-full px-3 py-1.5 text-sm font-semibold"
+                            :class="
                                     child.state === 'collected'
                                         ? 'bg-emerald-100 text-emerald-900'
                                         : child.state === 'preparing'
@@ -351,13 +374,13 @@ onBeforeUnmount(() => {
                                               ? 'bg-violet-100 text-violet-900'
                                               : 'bg-amber-100 text-amber-950'
                                 "
-                                >{{
-                                    child.needs_matching &&
-                                    child.state === 'needs_checking'
-                                        ? 'Check identity'
-                                        : child.label
-                                }}</span
-                            >
+                        >{{
+                                child.needs_matching &&
+                                child.state === 'needs_checking'
+                                    ? 'Check identity'
+                                    : child.label
+                            }}</span
+                        >
                         </li>
                     </ul>
                     <p
@@ -376,7 +399,7 @@ onBeforeUnmount(() => {
                 v-else
                 class="grid min-h-96 place-content-center justify-items-center gap-4 rounded-3xl border border-dashed bg-background text-center"
             >
-                <UsersRound class="size-14 text-slate-400" />
+                <UsersRound class="size-14 text-slate-400"/>
                 <h2 class="text-2xl font-semibold">
                     {{
                         history

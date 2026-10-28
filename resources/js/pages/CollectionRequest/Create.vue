@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
-import { onBeforeUnmount, onMounted, ref } from 'vue';
-import { store } from '@/actions/App/Http/Controllers/CollectionRequestController';
+import {Head, useForm} from '@inertiajs/vue3';
+import {onBeforeUnmount, onMounted, ref} from 'vue';
+import {store} from '@/actions/App/Http/Controllers/CollectionRequestController';
 import InputError from '@/components/InputError.vue';
 import RequesterPhoto from '@/components/RequesterPhoto.vue';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
 
 const props = defineProps<{
-    site: { name: string; uuid: string };
+    site: { name: string; uuid: string; logo: string | null };
 }>();
 
 const form = useForm({
@@ -34,9 +34,9 @@ function requestLocation(): void {
         return;
     }
 
-    locationStatus.value = 'Finding your location (optional)…';
+    locationStatus.value = 'Recording your location…';
     navigator.geolocation.getCurrentPosition(
-        ({ coords }) => {
+        ({coords}) => {
             if (attempt !== locationAttempt) {
                 return;
             }
@@ -51,7 +51,7 @@ function requestLocation(): void {
                     'Location unavailable. You can still submit your request.';
             }
         },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
+        {enableHighAccuracy: true, maximumAge: 0, timeout: 15000},
     );
 }
 
@@ -84,10 +84,12 @@ onBeforeUnmount(() => {
 
 <template>
     <main class="mx-auto flex min-h-screen max-w-md flex-col gap-6 px-5 py-10">
-        <Head title="Collection request" />
+        <Head title="Collection request"/>
 
-        <div class="grid gap-2">
-            <p class="text-sm text-muted-foreground">{{ site.name }}</p>
+        <div class=" flex flex-col items-center justify-center gap-y-2">
+            <img v-if="site.logo":src="site.logo" :alt="site.name" class="max-h-24">
+
+            <p v-else class="text-sm text-muted-foreground">{{ site.name }}</p>
             <h1 class="text-2xl font-semibold">Collection request</h1>
         </div>
 
@@ -114,7 +116,7 @@ onBeforeUnmount(() => {
 
             <div class="grid gap-2">
                 <Label for="requested_child_text"
-                    >Child you are collecting</Label
+                >Child you are collecting</Label
                 >
                 <Input
                     id="requested_child_text"
@@ -141,21 +143,21 @@ onBeforeUnmount(() => {
                     @capturing="capturingPhoto = $event"
                     @available="form.camera_available = $event"
                 />
-                <InputError :message="form.errors.photo" />
+                <InputError :message="form.errors.photo"/>
                 <p
                     v-if="form.camera_available && !form.photo"
-                    class="text-sm text-muted-foreground"
+                    class="text-sm text-muted-foreground text-center mt-2"
                 >
                     Please take a photo before sending your request.
                 </p>
             </div>
 
             <div class="grid gap-2">
-                <p role="status" class="text-sm text-muted-foreground">
+                <p role="status" class="text-sm text-muted-foreground text-center">
                     {{ locationStatus }}
                 </p>
-                <InputError :message="form.errors.requester_latitude" />
-                <InputError :message="form.errors.requester_longitude" />
+                <InputError :message="form.errors.requester_latitude"/>
+                <InputError :message="form.errors.requester_longitude"/>
             </div>
 
             <Button

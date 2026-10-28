@@ -170,7 +170,7 @@ class CollectionBoardData
     /** @return array<string, mixed> */
     private function person(Adult|Child $person, Site $site): array
     {
-        return ['id' => $person->getKey(), 'name' => $person->name, 'aliases' => $person->also_known_as ?? [], 'photo' => $this->photo($person->getMedia('logo')->last(), $site)];
+        return ['id' => $person->getKey(), 'name' => $person->name, 'aliases' => $person->also_known_as ?? [], 'photo' => $this->photo($person->getMedia('*')->whereIn('collection_name', ['photo', 'logo'])->sortBy('id')->last(), $site)];
     }
 
     private function photo(?Media $media, Site $site): ?string

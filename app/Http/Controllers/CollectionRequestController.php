@@ -22,6 +22,7 @@ class CollectionRequestController extends Controller
             'site' => [
                 'name' => $site->name,
                 'uuid' => $site->uuid,
+                'logo' => $site->getFirstMediaUrl('logo', 'medium'),
             ],
         ]);
 

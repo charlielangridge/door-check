@@ -208,8 +208,8 @@ class StaffCollectionWorkflow
     public function unavailablePhotos(CollectionRequest $root, Adult $adult, Child $child): array
     {
         return array_keys(array_filter([
-            'child' => $child->getMedia('logo')->last() === null,
-            'stored_adult' => $adult->getMedia('logo')->last() === null,
+            'child' => $child->getMedia('*')->whereIn('collection_name', ['photo', 'logo'])->isEmpty(),
+            'stored_adult' => $adult->getMedia('*')->whereIn('collection_name', ['photo', 'logo'])->isEmpty(),
             'current_adult' => $root->getFirstMedia('requester_photo') === null,
         ]));
     }
