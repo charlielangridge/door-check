@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia;
 use Spatie\MediaLibrary\Conversions\Jobs\PerformConversionsJob;
 
 test('the default database seed restores demo photos and nursery branding from repository assets', function (): void {
@@ -25,12 +26,14 @@ test('the default database seed restores demo photos and nursery branding from r
     Storage::fake('local');
     Storage::fake('public');
     config(['media-library.disk_name' => 'local']);
+    config(['inertia.ssr.enabled' => false]);
 
     $this->seed(DatabaseSeeder::class);
 
     $site = Site::query()->where('name', 'Willowbrook Nursery')->sole();
     expect($site->slug)->toBe('willowbrook-nursery');
     expect($site->staffUsers()->sole()->hasRole('super-admin'))->toBeTrue();
+    $this->actingAs($site->staffUsers()->sole())->withSession(['staff_signed_in_at' => now()->timestamp]);
 
     $assets = [
         [$site, 'logo', 'sample-logo.png'],
@@ -50,7 +53,23 @@ test('the default database seed restores demo photos and nursery branding from r
         Storage::disk($media->disk)->assertExists($media->getPathRelativeToRoot());
         expect(Storage::disk($media->disk)->get($media->getPathRelativeToRoot()))
             ->toBe(file_get_contents($source));
+        $this->get(route('staff.media.show', ['site' => $site->slug, 'media' => $media->id]))
+            ->assertOk()
+            ->assertStreamedContent(file_get_contents($source));
     }
+
+    $this->get(route('staff.children.index', ['site' => $site->slug]))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('children', 2)
+            ->where('children.0.photo', route('staff.media.show', [
+                'site' => $site->slug,
+                'media' => Child::query()->where('name', 'George Piggington')->sole()->getFirstMedia('photo')->id,
+            ]))
+            ->where('children.0.adults.0.photo', route('staff.media.show', [
+                'site' => $site->slug,
+                'media' => Adult::query()->where('name', 'David Piggington')->sole()->getFirstMedia('photo')->id,
+            ])));
 
     Mail::assertNothingOutgoing();
     Http::assertNothingSent();

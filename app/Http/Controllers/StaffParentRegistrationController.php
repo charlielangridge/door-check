@@ -36,7 +36,7 @@ class StaffParentRegistrationController extends Controller
         $accepted = DocumentAcceptance::query()->whereIn('adult_access_id', $profiles->pluck('id')->all())->get()->groupBy('adult_access_id');
 
         return Inertia::render('Staff/Registrations/Index', [
-            'site' => ['id' => $site->id, 'name' => $site->name, 'slug' => $site->slug, 'logo' => $site->getFirstMediaUrl('logo', 'medium')],
+            'site' => ['id' => $site->id, 'name' => $site->name, 'slug' => $site->slug, 'logo' => $site->logoUrl()],
             'canApprove' => $request->user()->can('approveParentRegistrations', $site),
             'status' => session('registration_status'),
             'registrations' => ParentRegistration::query()->where('site_id', $site->id)->with('site')->latest('id')->get()->map(fn (ParentRegistration $registration): array => [

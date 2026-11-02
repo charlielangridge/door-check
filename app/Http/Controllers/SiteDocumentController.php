@@ -19,7 +19,7 @@ class SiteDocumentController extends Controller
         abort_unless($request->user()->can('manageDocuments', $site), 403);
 
         return Inertia::render('Staff/Documents/Index', [
-            'site' => ['id' => $site->id, 'name' => $site->name, 'slug' => $site->slug, 'logo' => $site->getFirstMediaUrl('logo', 'medium')],
+            'site' => ['id' => $site->id, 'name' => $site->name, 'slug' => $site->slug, 'logo' => $site->logoUrl()],
             'documents' => $documents->display($site), 'recipientCount' => $documents->recipients($site)->count(),
             'status' => session('document_status'),
             'history' => DocumentVersion::query()->whereIn('site_document_id', SiteDocument::query()->where('site_id', $site->id)->select('id'))

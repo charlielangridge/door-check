@@ -10,10 +10,19 @@ use App\Models\Site;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class StaffMediaController extends Controller
 {
+    public function logo(Site $site): StreamedResponse
+    {
+        $media = $site->getFirstMedia('logo');
+        abort_if($media === null, 404);
+
+        return $this->streamMedia($media);
+    }
+
     public function show(Request $request, Site $site, AuditedMedia $media): StreamedResponse
     {
         $siteId = $site->id;
@@ -38,7 +47,7 @@ class StaffMediaController extends Controller
         return $this->streamMedia($media);
     }
 
-    private function streamMedia(AuditedMedia $media): StreamedResponse
+    private function streamMedia(Media $media): StreamedResponse
     {
         $conversion = $media->hasGeneratedConversion('medium') ? 'medium' : '';
         $disk = Storage::disk($conversion !== '' ? ($media->conversions_disk ?: $media->disk) : $media->disk);

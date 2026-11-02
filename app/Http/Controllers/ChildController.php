@@ -23,7 +23,7 @@ class ChildController extends Controller
                 'id' => $site->id,
                 'name' => $site->name,
                 'slug' => $site->slug,
-                'logo' => $site->getFirstMediaUrl('logo', 'medium'),
+                'logo' => $site->logoUrl(),
             ],
             'registrationDuplicates' => session('registration_duplicates', ['child' => null, 'adults' => []]),
             'registeredChildUuid' => session('registered_child_uuid'),

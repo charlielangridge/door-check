@@ -35,6 +35,11 @@ class Site extends Model implements \OwenIt\Auditing\Contracts\Auditable, HasMed
     use GeneratesUuid;
     use InteractsWithMedia;
 
+    public function logoUrl(): ?string
+    {
+        return $this->hasMedia('logo') ? route('sites.logo', ['site' => $this->slug]) : null;
+    }
+
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('logo')

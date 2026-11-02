@@ -45,7 +45,7 @@ class StaffCollectionController extends Controller
                 'id' => $site->id,
                 'name' => $site->name,
                 'slug' => $site->slug,
-                'logo' => $site->getFirstMediaUrl('logo', 'medium'),
+                'logo' => $site->logoUrl(),
             ],
             'requests' => $data->board($site->id, $request->boolean('history')),
             'history' => $request->boolean('history'),

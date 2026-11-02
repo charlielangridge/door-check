@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Welcome')->name('home');
 
+Route::get('sites/{site:slug}/logo', [StaffMediaController::class, 'logo'])->name('sites.logo');
+
 require __DIR__.'/parents.php';
 
 Route::get('admin/person-photos/{media}', [StaffMediaController::class, 'showForAdmin'])->middleware(['auth', 'can:access admin'])->name('admin.media.show');
