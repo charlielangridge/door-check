@@ -25,9 +25,9 @@ test('a signed-in staff account sees only its assigned venue', function (): void
     $user->assignRole('staff');
 
     $this->actingAs($user)->withSession(['staff_signed_in_at' => now()->timestamp])
-        ->get(route('staff.board', $site->uuid))
+        ->get(route('staff.board', $site->slug))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('Staff/Board')->where('site.id', $site->id));
+        ->assertInertia(fn (Assert $page) => $page->component('Staff/Board/Show')->where('site.id', $site->id)->where('site.slug', $site->slug)->missing('is_admin')->missing('can_choose_site'));
 });
 
 test('staff confirm checks with a recorded photo exception before preparing a child', function (): void {
@@ -40,7 +40,7 @@ test('staff confirm checks with a recorded photo exception before preparing a ch
     $staff->assignRole('staff');
 
     $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp])
-        ->postJson(route('staff.collections.update', ['site' => $request->site->uuid, 'collectionRequest' => $request]), [
+        ->postJson(route('staff.collections.update', ['site' => $request->site->slug, 'collectionRequest' => $request]), [
             'action' => 'review', 'revision' => 1, 'identity_confirmed' => true,
             'photo_verification_reason' => 'checked_in_person',
         ])->assertOk()->assertJsonPath('saved', true);
@@ -56,19 +56,19 @@ test('the board keeps unfinished siblings together and moves only finished group
     $site = Site::factory()->create();
     $root = CollectionRequest::factory()->for($site)->createQuietly(['collection_state' => ChildCollectionState::Collected, 'requested_child_text' => 'First child', 'closed_at' => now(), 'requested_at' => now()->subDay()]);
     $extra = CollectionRequest::factory()->for($site)->createQuietly(['parent_request_id' => $root->id, 'requested_child_text' => 'Second child']);
-    CollectionRequest::factory()->createQuietly();
+    CollectionRequest::factory()->for(Site::factory()->create())->createQuietly();
     $staff = User::factory()->hasAttached($site, [], 'staffSites')->create();
     $staff->assignRole('staff');
     $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp]);
 
-    $this->get(route('staff.board', $site->uuid))->assertOk()->assertInertia(fn (Assert $page) => $page
+    $this->get(route('staff.board', $site->slug))->assertOk()->assertInertia(fn (Assert $page) => $page
         ->has('requests', 1)->where('requests.0.uuid', $root->uuid)->where('requests.0.previous_day', true)
         ->has('requests.0.children', 2)->where('requests.0.children.0.state', 'collected')->where('requests.0.children.1.state', 'needs_checking'));
-    $this->get(route('staff.board', ['site' => $site->uuid, 'history' => 1]))->assertOk()->assertInertia(fn (Assert $page) => $page->has('requests', 0));
+    $this->get(route('staff.board', ['site' => $site->slug, 'history' => 1]))->assertOk()->assertInertia(fn (Assert $page) => $page->has('requests', 0));
     Event::fake([CollectionBoardChanged::class]);
     $extra->forceFill(['collection_state' => ChildCollectionState::Cancelled, 'closed_at' => now()])->save();
-    $this->get(route('staff.board', $site->uuid))->assertOk()->assertInertia(fn (Assert $page) => $page->has('requests', 0));
-    $this->get(route('staff.board', ['site' => $site->uuid, 'history' => 1]))->assertOk()->assertInertia(fn (Assert $page) => $page->has('requests', 1)->where('requests.0.uuid', $root->uuid));
+    $this->get(route('staff.board', $site->slug))->assertOk()->assertInertia(fn (Assert $page) => $page->has('requests', 0));
+    $this->get(route('staff.board', ['site' => $site->slug, 'history' => 1]))->assertOk()->assertInertia(fn (Assert $page) => $page->has('requests', 1)->where('requests.0.uuid', $root->uuid));
     Event::assertDispatched(CollectionBoardChanged::class);
 });
 
@@ -79,10 +79,10 @@ test('opening a request returns an Inertia modal and records a view without chan
     $staff->assignRole('staff');
 
     $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp]);
-    $this->get(route('staff.board', $site->uuid))->assertOk();
+    $this->get(route('staff.board', $site->slug))->assertOk();
     $this->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => Inertia::getVersion(), 'X-InertiaUI-Modal' => 'testing-modal'])
-        ->get(route('staff.collections.show', ['site' => $root->site->uuid, 'collectionRequest' => $root]))->assertOk()
-        ->assertJsonPath('component', 'Staff/Collection')->assertJsonPath('props.collection.uuid', $root->uuid)
+        ->get(route('staff.collections.show', ['site' => $root->site->slug, 'collectionRequest' => $root]))->assertOk()
+        ->assertJsonPath('component', 'Staff/Collection/Show')->assertJsonPath('props.collection.uuid', $root->uuid)->assertJsonPath('props.collection.site_slug', $site->slug)
         ->assertJsonMissingPath('props.collection.browser_key_hash');
 
     expect($root->fresh())->collection_state->toBe(ChildCollectionState::NeedsChecking)->revision->toBe(1);
@@ -95,7 +95,7 @@ test('discarding a draft audits the intent without accepting its submitted peopl
     $staff = User::factory()->hasAttached($site, [], 'staffSites')->create();
     $staff->assignRole('staff');
 
-    $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp])->postJson(route('staff.collections.update', ['site' => $root->site->uuid, 'collectionRequest' => $root]), ['action' => 'discard', 'revision' => 1, 'adult_id' => 123, 'child_id' => 456])->assertOk();
+    $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp])->postJson(route('staff.collections.update', ['site' => $root->site->slug, 'collectionRequest' => $root]), ['action' => 'discard', 'revision' => 1, 'adult_id' => 123, 'child_id' => 456])->assertOk();
 
     expect($root->fresh())->adult_id->toBeNull()->requested_child_id->toBeNull()->collection_state->toBe(ChildCollectionState::NeedsChecking)->revision->toBe(1);
     $this->assertDatabaseHas('audits', ['event' => 'draft_discarded', 'collection_request_id' => $root->id, 'user_id' => $staff->id]);

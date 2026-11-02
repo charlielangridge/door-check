@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { Form, Head, Link } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
-import { logout } from '@/routes';
-import { board } from '@/routes/staff';
+import { destroy as logout } from '@/wayfinder/Laravel/Fortify/Http/Controllers/AuthenticatedSessionController';
+import { board } from '@/wayfinder/App/Http/Controllers/StaffCollectionController';
 
-defineProps<{ sites: { name: string; uuid: string }[] }>();
+defineProps<{ sites: { name: string; slug: string }[] }>();
 </script>
 
 <template>
@@ -29,9 +29,11 @@ defineProps<{ sites: { name: string; uuid: string }[] }>();
             </header>
             <nav class="grid gap-4 sm:grid-cols-2" aria-label="Staff venues">
                 <Link
+                    prefetch
+                    cache-for="5s"
                     v-for="site in sites"
-                    :key="site.uuid"
-                    :href="board(site.uuid)"
+                    :key="site.slug"
+                    :href="board(site.slug)"
                     class="flex min-h-32 items-center justify-between rounded-2xl border-2 bg-card p-6 text-xl font-semibold shadow-sm hover:border-sky-500 focus-visible:outline-4 focus-visible:outline-sky-600"
                     ><span>{{ site.name }}</span
                     ><span aria-hidden="true">→</span></Link

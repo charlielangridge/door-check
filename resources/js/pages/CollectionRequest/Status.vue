@@ -2,8 +2,8 @@
 import { Head, Link, router, useForm, usePoll } from '@inertiajs/vue3';
 import { useCollectionChannel } from '@/composables/useCollectionChannel';
 import { Check, Clock, LoaderCircle, Plus, X } from '@lucide/vue';
-import { store } from '@/actions/App/Http/Controllers/CollectionStatusController';
-import { create } from '@/actions/App/Http/Controllers/CollectionRequestController';
+import { store } from '@/wayfinder/App/Http/Controllers/CollectionStatusController';
+import { create } from '@/wayfinder/App/Http/Controllers/CollectionRequestController';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

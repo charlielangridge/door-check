@@ -57,7 +57,7 @@ class DemoSeeder extends Seeder
             'also_known_as' => ['George Pig'],
         ]);
         $georgePig->sites()->attach($demoSite->id);
-        $georgePig->adults()->syncWithPivotValues([$daddyPig->id, $mummyPig->id], ['relationship' => 'parent']);
+        $georgePig->adults()->syncWithPivotValues([$daddyPig->id, $mummyPig->id], ['relationship' => 'Parent']);
         $georgePig->addMedia(base_path('source/george-pig.webp'))
             ->preservingOriginal()
             ->toMediaCollection('photo');
@@ -68,7 +68,7 @@ class DemoSeeder extends Seeder
             'also_known_as' => ['Peppa Pig'],
         ]);
         $peppaPig->sites()->attach($demoSite->id);
-        $peppaPig->adults()->syncWithPivotValues([$daddyPig->id, $mummyPig->id], ['relationship' => 'parent']);
+        $peppaPig->adults()->syncWithPivotValues([$daddyPig->id, $mummyPig->id], ['relationship' => 'Parent']);
         $peppaPig->addMedia(base_path('source/peppa-pig.webp'))
             ->preservingOriginal()
             ->toMediaCollection('photo');

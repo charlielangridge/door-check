@@ -1,12 +1,12 @@
-import { board } from '@/routes/staff';
 import {
+    board,
     show,
     data,
     candidates,
     checks,
     timeline,
     update,
-} from '@/routes/staff/collections';
+} from '@/wayfinder/App/Http/Controllers/StaffCollectionController';
 import type { RouteQueryOptions } from '@/wayfinder';
 
 export function useStaffCollectionRoutes(site: string) {

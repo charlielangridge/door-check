@@ -8,8 +8,8 @@ import {
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import UserInfo from '@/components/UserInfo.vue';
-import { logout } from '@/routes';
-import { edit } from '@/routes/profile';
+import { destroy as logout } from '@/wayfinder/Laravel/Fortify/Http/Controllers/AuthenticatedSessionController';
+import { edit } from '@/wayfinder/App/Http/Controllers/Settings/ProfileController';
 import type { User } from '@/types';
 
 type Props = {

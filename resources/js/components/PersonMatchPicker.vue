@@ -11,10 +11,10 @@ const props = defineProps<{
     candidates: CollectionPerson[];
     person: 'adult' | 'child';
     entryUuid: string;
-    siteUuid: string;
+    siteSlug: string;
 }>();
 const { candidates: searchCandidates } = useStaffCollectionRoutes(
-    props.siteUuid,
+    props.siteSlug,
 );
 const emit = defineEmits<{ 'update:modelValue': [person: CollectionPerson] }>();
 const query = ref('');

@@ -18,7 +18,10 @@ class StaffMediaController extends Controller
     {
         $siteId = $site->id;
         $allowed = match ($media->model_type) {
-            Adult::class, Child::class => $media->model()->whereHas('sites', fn (Builder $query) => $query->whereKey($siteId))->exists(),
+            Adult::class => $media->model()->where(fn (Builder $query) => $query
+                ->whereHas('sites', fn (Builder $query) => $query->whereKey($siteId))
+                ->orWhereHas('children.sites', fn (Builder $query) => $query->whereKey($siteId)))->exists(),
+            Child::class => $media->model()->whereHas('sites', fn (Builder $query) => $query->whereKey($siteId))->exists(),
             CollectionRequest::class => $media->model()->where('site_id', $siteId)->exists(),
             Site::class => (int) $media->model_id === $siteId,
             default => false,

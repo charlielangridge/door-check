@@ -31,6 +31,9 @@ The status shown to the collecting adult for a child after staff explicitly conf
 **Site membership**:
 An association recording that an adult or child belongs to a site. A person can belong to more than one site.
 
+**Child registration**:
+Recording a child as belonging to a venue with at least one adult connected by a recorded adult-child relationship.
+
 **Also known as name**:
 An alternative full name recorded by an administrator for a particular adult or child to help identify that person from a collection request or staff search. A person can have multiple such names while retaining their primary name.
 

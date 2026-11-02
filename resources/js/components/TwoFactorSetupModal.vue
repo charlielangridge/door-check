@@ -21,7 +21,7 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { useAppearance } from '@/composables/useAppearance';
 import { useTwoFactorAuth } from '@/composables/useTwoFactorAuth';
-import { confirm } from '@/routes/two-factor';
+import { store as confirm } from '@/wayfinder/Laravel/Fortify/Http/Controllers/ConfirmedTwoFactorAuthenticationController';
 import type { TwoFactorConfigContent } from '@/types';
 
 type Props = {

@@ -28,7 +28,11 @@ export default defineConfig({
             },
         }),
         wayfinder({
-            formVariants: true,
+            patterns: [
+                'routes/**/*.php',
+                'app/**/*.php',
+                'config/wayfinder.php',
+            ],
         }),
     ]),
     server: {

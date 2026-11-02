@@ -13,7 +13,7 @@ import {
 } from '@lucide/vue';
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { useStaffCollectionRoutes } from '@/composables/useStaffCollectionRoutes';
-import { login } from '@/routes';
+import { create as login } from '@/wayfinder/Laravel/Fortify/Http/Controllers/AuthenticatedSessionController';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import PersonMatchPicker from '@/components/PersonMatchPicker.vue';
@@ -35,7 +35,7 @@ const {
     data: loadData,
     timeline: loadTimeline,
     update,
-} = useStaffCollectionRoutes(props.collection.site_uuid);
+} = useStaffCollectionRoutes(props.collection.site_slug);
 const record = ref(props.collection);
 const activeUuid = ref(
     record.value.children.find(
@@ -553,7 +553,7 @@ function photoFailed(kind: string): void {
                         :candidates="record.adult_candidates"
                         person="adult"
                         :entry-uuid="entry.uuid"
-                        :site-uuid="record.site_uuid"
+                        :site-slug="record.site_slug"
                     />
                 </section>
                 <section class="space-y-3">
@@ -613,7 +613,7 @@ function photoFailed(kind: string): void {
                         :candidates="entry.candidates"
                         person="child"
                         :entry-uuid="entry.uuid"
-                        :site-uuid="record.site_uuid"
+                        :site-slug="record.site_slug"
                     />
                     <div class="space-y-3">
                         <p

@@ -8,9 +8,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import { register } from '@/routes';
-import { store } from '@/routes/login';
-import { request } from '@/routes/password';
+import { create as register } from '@/wayfinder/Laravel/Fortify/Http/Controllers/RegisteredUserController';
+import { store } from '@/wayfinder/Laravel/Fortify/Http/Controllers/AuthenticatedSessionController';
+import { create as request } from '@/wayfinder/Laravel/Fortify/Http/Controllers/PasswordResetLinkController';
 import PasskeyVerify from '@/components/PasskeyVerify.vue';
 
 defineOptions({

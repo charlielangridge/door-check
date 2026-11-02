@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Database\Factories\ChildFactory;
+use Dyrynda\Database\Support\BindsOnUuid;
+use Dyrynda\Database\Support\GeneratesUuid;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -15,6 +17,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /** @property list<string>|null $also_known_as */
 #[Fillable([
+    'uuid',
     'name',
     'date_of_birth',
     'also_known_as',
@@ -22,6 +25,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 class Child extends Model implements \OwenIt\Auditing\Contracts\Auditable, HasMedia
 {
     use Auditable;
+    use GeneratesUuid, BindsOnUuid;
 
     /** @use HasFactory<ChildFactory> */
     use HasFactory;

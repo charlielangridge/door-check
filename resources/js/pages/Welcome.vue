@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { dashboard, login } from '@/routes';
-import { register } from '@/routes';
+import { dashboard } from '@/wayfinder/routes';
+import { create as login } from '@/wayfinder/Laravel/Fortify/Http/Controllers/AuthenticatedSessionController';
+import { create as register } from '@/wayfinder/Laravel/Fortify/Http/Controllers/RegisteredUserController';
 </script>
 
 <template>

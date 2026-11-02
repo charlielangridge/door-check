@@ -48,6 +48,7 @@ export interface StaffCollection {
     site_name: string;
     site_id: number;
     site_uuid: string;
+    site_slug: string;
     requested_at: string;
     submitted_adult_name: string;
     adult: CollectionPerson | null;
@@ -60,4 +61,25 @@ export interface StaffCollection {
     finished: boolean;
     children: StaffChildCollection[];
     timeline: CollectionTimeline;
+}
+
+export interface StaffSite {
+    id: number;
+    name: string;
+    slug: string;
+    logo: string | null;
+}
+
+export interface BoardRequest {
+    uuid: string;
+    adult_name: string;
+    requested_at: string;
+    previous_day: boolean;
+    children: {
+        uuid: string;
+        name: string;
+        state: CollectionState;
+        label: string;
+        needs_matching: boolean;
+    }[];
 }

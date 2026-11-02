@@ -27,29 +27,28 @@ class StaffCollectionController extends Controller
     public function index(Request $request): Response|RedirectResponse
     {
         $sites = $request->user()->can('process collections at any site') ? Site::query() : $request->user()->staffSites();
-        $sites = $sites->orderBy('name')->get(['sites.id', 'sites.uuid', 'sites.name']);
+        $sites = $sites->orderBy('name')->get(['sites.id', 'sites.slug', 'sites.name']);
         abort_if($sites->isEmpty(), 403, 'No staff venues are assigned to this account.');
         if ($sites->count() === 1) {
-            return to_route('staff.board', $sites->first()->uuid);
+            return to_route('staff.board', $sites->first()->slug);
         }
 
-        return Inertia::render('Staff/Sites', ['sites' => $sites->map(fn (Site $site): array => $site->only(['name', 'uuid']))]);
+        return Inertia::render('Staff/Sites/Index', ['sites' => $sites->map(fn (Site $site): array => $site->only(['name', 'slug']))]);
     }
 
     public function board(Request $request, Site $site, CollectionBoardData $data, CollectionAudit $audit): Response
     {
         $audit->record('staff_board_viewed', $site);
 
-        return Inertia::render('Staff/Board', [
+        return Inertia::render('Staff/Board/Show', [
             'site' => [
+                'id' => $site->id,
                 'name' => $site->name,
                 'slug' => $site->slug,
                 'logo' => $site->getFirstMediaUrl('logo', 'medium'),
             ],
             'requests' => $data->board($site->id, $request->boolean('history')),
             'history' => $request->boolean('history'),
-            'is_admin' => $request->user()->can('access admin'),
-            'can_choose_site' => $request->user()->can('process collections at any site') || $request->user()->staffSites()->count() > 1,
         ]);
     }
 
@@ -58,11 +57,11 @@ class StaffCollectionController extends Controller
         $this->authorizeVenue($request, $site, $collectionRequest);
         $audit->record('request_viewed', $collectionRequest);
 
-        return (new Modal('Staff/Collection', [
+        return (new Modal('Staff/Collection/Show', [
             'collection' => $data->details($collectionRequest),
             'cancellation_reasons' => collect(CollectionCancellationReason::cases())->map(fn (CollectionCancellationReason $reason): array => ['value' => $reason->value, 'label' => $reason->label()]),
             'photo_reasons' => collect(PhotoVerificationReason::cases())->map(fn (PhotoVerificationReason $reason): array => ['value' => $reason->value, 'label' => $reason->label()]),
-        ]))->baseRoute('staff.board', $site->uuid);
+        ]))->baseRoute('staff.board', $site->slug);
     }
 
     public function data(Request $request, Site $site, CollectionRequest $collectionRequest, CollectionBoardData $data): JsonResponse

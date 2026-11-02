@@ -68,6 +68,7 @@ class CollectionBoardData
             'site_name' => $root->site->name,
             'site_id' => $root->site_id,
             'site_uuid' => $root->site->uuid,
+            'site_slug' => $root->site->slug,
             'requested_at' => $root->requested_at->toIso8601String(),
             'submitted_adult_name' => $root->requester_name_text,
             'adult' => $root->adult ? $this->person($root->adult, $root->site) : null,

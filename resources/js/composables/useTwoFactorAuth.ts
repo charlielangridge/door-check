@@ -1,7 +1,9 @@
 import { useHttp } from '@inertiajs/vue3';
 import type { ComputedRef, Ref } from 'vue';
 import { computed, ref } from 'vue';
-import { qrCode, recoveryCodes, secretKey } from '@/routes/two-factor';
+import { show as qrCode } from '@/wayfinder/Laravel/Fortify/Http/Controllers/TwoFactorQrCodeController';
+import { index as recoveryCodes } from '@/wayfinder/Laravel/Fortify/Http/Controllers/RecoveryCodeController';
+import { show as secretKey } from '@/wayfinder/Laravel/Fortify/Http/Controllers/TwoFactorSecretKeyController';
 
 export type UseTwoFactorAuthReturn = {
     qrCodeSvg: Ref<string | null>;
