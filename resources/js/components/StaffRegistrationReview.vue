@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import { formatLongDate } from '@/lib/dates';
 import StaffWizardProgress from '@/components/StaffWizardProgress.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -97,7 +98,7 @@ function act(action: string): void {
         </header>
         <p>
             {{ registration.email }} · DOB
-            {{ registration.child_date_of_birth }}
+            {{ formatLongDate(registration.child_date_of_birth) }}
         </p>
         <p
             v-if="
@@ -172,7 +173,7 @@ function act(action: string): void {
                 />
                 <p>
                     {{ registration.payload.name }} ·
-                    {{ registration.child_date_of_birth }}
+                    {{ formatLongDate(registration.child_date_of_birth) }}
                 </p>
                 <p v-if="registration.payload.also_known_as?.length">
                     Also known as
@@ -238,7 +239,7 @@ function act(action: string): void {
                     <div>
                         <h4 class="font-semibold">{{ adult.name }}</h4>
                         <p>
-                            DOB {{ adult.date_of_birth }} ·
+                            DOB {{ formatLongDate(adult.date_of_birth) }} ·
                             {{ adult.relationship }}
                         </p>
                         <p>{{ adult.email }} {{ adult.phone }}</p>

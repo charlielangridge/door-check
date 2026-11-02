@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { index as childrenPage } from '@/wayfinder/App/Http/Controllers/ChildController';
 import { computed, ref } from 'vue';
+import { formatLongDate } from '@/lib/dates';
 import StaffPersonEditForm from '@/components/StaffPersonEditForm.vue';
 import StaffChildRegistrationForm from '@/components/StaffChildRegistrationForm.vue';
 import type { RegistrationDuplicates } from '@/types/registration';
@@ -83,12 +84,6 @@ const finishEditing = (): void => {
     editing.value = null;
     saved.value = true;
 };
-
-const formatDateOfBirth = (date: string): string =>
-    new Intl.DateTimeFormat('en-GB', {
-        dateStyle: 'long',
-        timeZone: 'UTC',
-    }).format(new Date(`${date}T00:00:00Z`));
 </script>
 
 <template>
@@ -258,7 +253,7 @@ const formatDateOfBirth = (date: string): string =>
                                 <dd>
                                     {{
                                         selectedChild.date_of_birth
-                                            ? formatDateOfBirth(
+                                            ? formatLongDate(
                                                   selectedChild.date_of_birth,
                                               )
                                             : 'Not recorded'

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import { formatLongDate } from '@/lib/dates';
 import {
     Dialog,
     DialogContent,
@@ -157,7 +158,11 @@ function change(
 function checked(event: Event): boolean {
     return (event.target as HTMLInputElement).checked;
 }
-function display(value: unknown): string {
+function display(value: unknown, field: string | number): string {
+    if (field === 'date_of_birth' && typeof value === 'string') {
+        return formatLongDate(value);
+    }
+
     return Array.isArray(value)
         ? value.join(', ')
         : value === null
@@ -396,7 +401,7 @@ function display(value: unknown): string {
                                 >
                                     {{ String(key).replaceAll('_', ' ') }}
                                 </dt>
-                                <dd>{{ display(value) }}</dd></template
+                                <dd>{{ display(value, key) }}</dd></template
                             >
                         </dl>
                     </details>
@@ -411,7 +416,7 @@ function display(value: unknown): string {
                                 >
                                     {{ String(key).replaceAll('_', ' ') }}
                                 </dt>
-                                <dd>{{ display(value) }}</dd></template
+                                <dd>{{ display(value, key) }}</dd></template
                             >
                         </dl>
                     </section>
