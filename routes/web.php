@@ -14,6 +14,8 @@ Route::get('admin/person-photos/{media}', [StaffMediaController::class, 'showFor
 
 Route::get('staff', [StaffCollectionController::class, 'index'])->middleware(['auth', 'verified', EnsureStaffSession::class])->name('staff.index');
 
+Route::get('staff/{site:slug}/children', [\App\Http\Controllers\ChildController::class, 'index'])->middleware(['auth', 'verified', EnsureStaffSession::class])->name('staff.children.index');
+
 Route::middleware(['auth', 'verified', EnsureStaffSession::class])->prefix('staff/{site:slug}')->name('staff.')->group(function (): void {
     Route::get('/', [StaffCollectionController::class, 'board'])->name('board');
     Route::get('/media/{media}', [StaffMediaController::class, 'show'])->name('media.show');
@@ -29,7 +31,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::inertia('dashboard', 'Dashboard')->name('dashboard');
 });
 
-require __DIR__.'/settings.php';
+require __DIR__ . '/settings.php';
 
 Route::get('collection-request/{site:slug}', [CollectionRequestController::class, 'create'])->name('collection-request.create');
 Route::post('collection-request/{site:slug}', [CollectionRequestController::class, 'store'])

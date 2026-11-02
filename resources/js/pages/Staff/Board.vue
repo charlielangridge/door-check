@@ -18,6 +18,7 @@ import {index as staffSites} from '@/routes/staff';
 import {Button} from '@/components/ui/button';
 import {useCollectionChannel} from '@/composables/useCollectionChannel';
 import type {CollectionState} from '@/types/collections';
+import {index as childIndex} from '@/actions/App/Http/Controllers/ChildController'
 
 interface BoardRequest {
     uuid: string;
@@ -212,23 +213,42 @@ onBeforeUnmount(() => {
                 class="flex flex-wrap items-center gap-3"
                 aria-label="Staff controls"
             >
-<!--                <Button-->
-<!--                    v-if="is_admin"-->
-<!--                    as-child-->
-<!--                    variant="outline"-->
-<!--                    class="min-h-12"-->
-<!--                >-->
-<!--                    <a :href="adminSites.url()">Back to admin</a>-->
-<!--                </Button>-->
-<!--                <Button-->
-<!--                    v-if="can_choose_site"-->
-<!--                    as-child-->
-<!--                    variant="outline"-->
-<!--                    class="min-h-12"-->
-<!--                >-->
-<!--                    <Link :href="staffSites()">Change venue</Link>-->
-<!--                </Button-->
-<!--                >-->
+
+                <Button
+
+                    variant="outline"
+                    class="min-h-12"
+                >
+                    <Link :href="childIndex({site: props.site.slug})">View Children</Link>
+                </Button
+                >
+
+                <!--                <Button-->
+                <!--                    v-if="is_admin"-->
+                <!--                    as-child-->
+                <!--                    variant="outline"-->
+                <!--                    class="min-h-12"-->
+                <!--                >-->
+                <!--                    <a :href="adminSites.url()">Back to admin</a>-->
+                <!--                </Button>-->
+                <!--                <Button-->
+                <!--                    v-if="can_choose_site"-->
+                <!--                    as-child-->
+                <!--                    variant="outline"-->
+                <!--                    class="min-h-12"-->
+                <!--                >-->
+                <!--                    <Link :href="staffSites()">Change venue</Link>-->
+                <!--                </Button-->
+                <!--                >-->
+                <!--                <Button-->
+                <!--                    v-if="can_choose_site"-->
+                <!--                    as-child-->
+                <!--                    variant="outline"-->
+                <!--                    class="min-h-12"-->
+                <!--                >-->
+                <!--                    <Link :href="staffSites()">Change venue</Link>-->
+                <!--                </Button-->
+                <!--                >-->
                 <Button variant="outline" class="min-h-12" @click="toggleSound"
                 >
                     <Volume2 v-if="sound" class="size-5"/>
