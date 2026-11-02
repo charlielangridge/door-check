@@ -6,6 +6,7 @@ use App\ChildCollectionState;
 use App\CollectionRequestStatus;
 use App\Models\Adult;
 use App\Models\Child;
+use App\Models\ChildAdultSite;
 use App\Models\CollectionRequest;
 use App\Models\User;
 use App\Settings\CollectionMatchingSettings;
@@ -91,6 +92,8 @@ class StaffCollectionWorkflow
 
         $changed = ($root->adult_id !== null && $root->adult_id !== $adultId) || ($entry->requested_child_id !== null && $entry->requested_child_id !== $childId);
         $this->require(! $changed || filled($data['match_change_reason'] ?? null), 'match_change_reason', 'Explain why you are changing the automatic match.');
+        $this->requireCollectionPermission($adultId, $childId);
+        $this->requireSiteRelationship($root->site_id, $adultId, $childId);
         $related = $this->hasRecordedRelationship($adultId, $childId);
         $this->require($related || filled($data['relationship_override_reason'] ?? null), 'relationship_override_reason', 'Explain why this adult may collect this child without a recorded relationship.');
 
@@ -101,7 +104,7 @@ class StaffCollectionWorkflow
             foreach ($root->groupEntries()->whereKeyNot($root->getKey())->whereKeyNot($entry->getKey())->orderBy('id')->lockForUpdate()->get() as $sibling) {
                 $sibling->adult_id = $adult->id;
                 $sibling->adult_match_status = CollectionRequestStatus::Matched;
-                $sibling->status = $sibling->requested_child_id !== null && $adult->children()->whereKey($sibling->requested_child_id)->exists()
+                $sibling->status = $sibling->requested_child_id !== null && $this->hasRecordedRelationship($adult->id, $sibling->requested_child_id, $root->site_id)
                     ? CollectionRequestStatus::Matched : CollectionRequestStatus::NeedsApproval;
                 $sibling->save();
             }
@@ -113,7 +116,7 @@ class StaffCollectionWorkflow
         $root->adult_site_membership_changed = false;
         $root->adult_locked_at ??= now();
         if ($root !== $entry) {
-            $root->status = $root->requested_child_id !== null && $adult->children()->whereKey($root->requested_child_id)->exists()
+            $root->status = $root->requested_child_id !== null && $this->hasRecordedRelationship($adult->id, $root->requested_child_id, $root->site_id)
                 ? CollectionRequestStatus::Matched : CollectionRequestStatus::NeedsApproval;
             $root->save();
         }
@@ -166,6 +169,8 @@ class StaffCollectionWorkflow
         if ($child === null || ! $this->isVenueMember($child, $root->site_id)) {
             throw ValidationException::withMessages(['action' => 'The child no longer belongs to this venue. Cancel this collection and review the records.']);
         }
+        $this->requireCollectionPermission($adult->id, $child->id);
+        $this->requireSiteRelationship($root->site_id, $adult->id, $child->id);
         $this->require($this->hasRecordedRelationship($adult->id, $child->id) || filled($entry->relationship_override_reason), 'action', 'The relationship has changed since review. Cancel this collection and review the records.');
         $missing = $this->unavailablePhotos($root, $adult, $child);
         $this->require($missing === [] || ($entry->photo_verification_reason !== null && array_diff($missing, $entry->unavailable_photos ?? []) === []), 'action', 'Photos have changed since review. Cancel this collection and review identity again.');
@@ -254,11 +259,25 @@ class StaffCollectionWorkflow
     {
         $name = $person instanceof Adult ? 'adult' : 'child';
 
-        return DB::table('site_'.$name)->where('site_id', $siteId)->where($name.'_id', $person->getKey())->lockForUpdate()->first() !== null;
+        return DB::table('site_'.$name)->where('site_id', $siteId)->where($name.'_id', $person->getKey())
+            ->when($person instanceof Child, fn ($query) => $query->where('is_active', true)->where('is_approved', true))->lockForUpdate()->first() !== null;
     }
 
-    private function hasRecordedRelationship(int $adultId, int $childId): bool
+    private function hasRecordedRelationship(int $adultId, int $childId, ?int $siteId = null): bool
     {
-        return DB::table('adult_child')->where('adult_id', $adultId)->where('child_id', $childId)->lockForUpdate()->first() !== null;
+        return DB::table('adult_child')->where('adult_id', $adultId)->where('child_id', $childId)->where('authorised_to_collect', true)->lockForUpdate()->first() !== null
+            && ($siteId === null || ! ChildAdultSite::query()->where('site_id', $siteId)->where('adult_id', $adultId)->where('child_id', $childId)->where('is_linked', false)->exists());
+    }
+
+    private function requireCollectionPermission(int $adultId, int $childId): void
+    {
+        $relationship = DB::table('adult_child')->where('adult_id', $adultId)->where('child_id', $childId)->lockForUpdate()->first();
+        $this->require($relationship === null || (bool) $relationship->authorised_to_collect, 'relationship_override_reason', 'This adult is not authorised to collect this child. Staff must explicitly restore collection permission on the relationship before collection; an override cannot bypass this restriction.');
+    }
+
+    private function requireSiteRelationship(int $siteId, int $adultId, int $childId): void
+    {
+        $excluded = ChildAdultSite::query()->where('site_id', $siteId)->where('adult_id', $adultId)->where('child_id', $childId)->where('is_linked', false)->lockForUpdate()->exists();
+        $this->require(! $excluded, 'relationship_override_reason', 'This adult has been removed from this child at this nursery. Staff must restore that association before collection.');
     }
 }

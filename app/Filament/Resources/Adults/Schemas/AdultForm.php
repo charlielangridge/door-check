@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Adults\Schemas;
 
 use App\Models\Adult;
+use App\Models\AdultAccess;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\TagsInput;
@@ -18,6 +19,10 @@ class AdultForm
             ->components([
                 TextInput::make('name')
                     ->required(),
+                TextInput::make('email')->email()->maxLength(255)->unique(ignoreRecord: true)
+                    ->disabled(fn (?Adult $record): bool => $record !== null && AdultAccess::query()->where('adult_id', $record->id)->exists())
+                    ->helperText('Adults with online access must use the verified adult-page workflow to change their email.'),
+                TextInput::make('phone')->tel()->maxLength(50),
                 TagsInput::make('also_known_as')->label('Also known as')->helperText('Add alternative full names, pressing Enter after each.')->nestedRecursiveRules(['string', 'max:255'])->rules(['array', 'max:50']),
                 FileUpload::make('new_photo')->label('Add a stored photo')->image()->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])->maxSize(2048)->storeFiles(false)->dehydrated(false)->helperText('The latest saved photo is used for collection checks. Older photos remain stored.'),
                 ImageEntry::make('stored_photo')->label('Current stored photo')->imageHeight(160)

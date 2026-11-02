@@ -25,6 +25,12 @@ use Spatie\Sluggable\Attributes\Sluggable;
 #[Sluggable(from: 'name', to: 'slug', onUpdate: false)]
 class Site extends Model implements \OwenIt\Auditing\Contracts\Auditable, HasMedia
 {
+    /** @return HasMany<ParentRegistration, $this> */
+    public function registrations(): HasMany
+    {
+        return $this->hasMany(ParentRegistration::class);
+    }
+
     use Auditable;
     use GeneratesUuid;
     use InteractsWithMedia;
@@ -52,13 +58,13 @@ class Site extends Model implements \OwenIt\Auditing\Contracts\Auditable, HasMed
     /** @return BelongsToMany<Adult, $this, AuditedMembership> */
     public function adults(): BelongsToMany
     {
-        return $this->belongsToMany(Adult::class, 'site_adult', 'site_id', 'adult_id')->using(AuditedMembership::class);
+        return $this->belongsToMany(Adult::class, 'site_adult', 'site_id', 'adult_id')->using(AuditedMembership::class)->withPivot('access_suspended');
     }
 
     /** @return BelongsToMany<Child, $this, AuditedMembership> */
     public function children(): BelongsToMany
     {
-        return $this->belongsToMany(Child::class, 'site_child', 'site_id', 'child_id')->using(AuditedMembership::class);
+        return $this->belongsToMany(Child::class, 'site_child', 'site_id', 'child_id')->using(AuditedMembership::class)->withPivot('is_active', 'is_approved');
     }
 
     /** @return HasMany<CollectionRequest, $this> */

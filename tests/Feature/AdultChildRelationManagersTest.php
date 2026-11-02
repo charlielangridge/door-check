@@ -24,7 +24,7 @@ dataset('adult child relation managers', [
 test('the edit page renders the relation manager', function (string $ownerModel, string $relatedModel, string $manager, string $page): void {
     $owner = $ownerModel::factory()->create();
 
-    Livewire::test($page, ['record' => $owner->getKey()])
+    Livewire::test($page, ['record' => $owner->getRouteKey()])
         ->assertOk()
         ->assertSeeLivewire($manager);
 })->with('adult child relation managers');

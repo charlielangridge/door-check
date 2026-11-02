@@ -5,6 +5,7 @@ namespace App\Services;
 use App\ChildCollectionState;
 use App\CollectionRequestMatchPerson;
 use App\CollectionRequestStatus;
+use App\Models\ChildAdultSite;
 use App\Models\CollectionRequest;
 use App\Settings\CollectionMatchingSettings;
 use Illuminate\Database\Eloquent\Builder;
@@ -134,7 +135,8 @@ class CollectionRequestMatcher
         } elseif (in_array(CollectionRequestStatus::MatchingFailed, $statuses, true)) {
             $request->status = CollectionRequestStatus::MatchingFailed;
         } elseif ($request->adult_id !== null && $request->requested_child_id !== null) {
-            $related = $request->adult()->whereHas('children', fn (Builder $query): Builder => $query->whereKey($request->requested_child_id))->exists();
+            $related = $request->adult()->whereHas('children', fn (Builder $query): Builder => $query->whereKey($request->requested_child_id)->where('adult_child.authorised_to_collect', true))->exists();
+            $related = $related && ! ChildAdultSite::query()->where('site_id', $request->site_id)->where('adult_id', $request->adult_id)->where('child_id', $request->requested_child_id)->where('is_linked', false)->exists();
             $request->status = $related ? CollectionRequestStatus::Matched : CollectionRequestStatus::NeedsApproval;
         } elseif ($statuses === [CollectionRequestStatus::NoMatchFound, CollectionRequestStatus::NoMatchFound]) {
             $request->status = CollectionRequestStatus::NoMatchFound;
@@ -158,6 +160,7 @@ class CollectionRequestMatcher
         return DB::table('site_'.$person->value)
             ->where('site_id', $request->site_id)
             ->where($person->value.'_id', $personId)
+            ->when($person === CollectionRequestMatchPerson::Child, fn ($query) => $query->where('is_active', true)->where('is_approved', true))
             ->lockForUpdate()
             ->first() !== null;
     }

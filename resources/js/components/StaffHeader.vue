@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { Form, Link } from '@inertiajs/vue3';
+import { Form, Link, usePage } from '@inertiajs/vue3';
+import { index as registrations } from '@/wayfinder/App/Http/Controllers/StaffParentRegistrationController';
+import { index as documents } from '@/wayfinder/App/Http/Controllers/SiteDocumentController';
 import { History, LogOut, Volume2, VolumeX } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { useStaffSound } from '@/composables/useStaffSound';
@@ -16,6 +18,7 @@ defineProps<{
 }>();
 
 const { enabled: sound, toggle: toggleSound } = useStaffSound();
+const page = usePage<{ staffPermissions: { documents: boolean } }>();
 </script>
 
 <template>
@@ -42,6 +45,27 @@ const { enabled: sound, toggle: toggleSound } = useStaffSound();
             class="flex flex-wrap items-center gap-3"
             aria-label="Staff controls"
         >
+            <Button
+                v-if="title !== 'Children' && section !== 'board'"
+                as-child
+                variant="outline"
+                class="min-h-12"
+                ><Link :href="childIndex(site.slug)"
+                    >View Children</Link
+                ></Button
+            >
+            <Button as-child variant="outline" class="min-h-12"
+                ><Link :href="registrations(site.slug)"
+                    >Registrations</Link
+                ></Button
+            >
+            <Button
+                v-if="page.props.staffPermissions?.documents"
+                as-child
+                variant="outline"
+                class="min-h-12"
+                ><Link :href="documents(site.slug)">Documents</Link></Button
+            >
             <Button as-child variant="outline" class="min-h-12">
                 <Link
                     v-if="section === 'board'"

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\UpdateStaffPersonRequest;
 use App\Models\Adult;
+use App\Models\AdultAccess;
 use App\Models\Child;
 use App\Models\Site;
 use Illuminate\Http\RedirectResponse;
@@ -31,7 +32,10 @@ class StaffPersonController extends Controller
 
     private function savePerson(UpdateStaffPersonRequest $request, Adult|Child $person): void
     {
-        $person->update($request->safe()->only(['name', 'date_of_birth', 'also_known_as']));
+        $person->update($request->safe()->only(['name', 'date_of_birth', 'also_known_as', ...($person instanceof Adult ? ['email', 'phone'] : [])]));
+        if ($person instanceof Adult) {
+            AdultAccess::query()->where('adult_id', $person->id)->update(['name' => $person->name, 'date_of_birth' => $person->date_of_birth]);
+        }
         if ($request->hasFile('new_photo')) {
             $photo = $request->file('new_photo');
             $person->addMedia($photo)->usingFileName(Str::uuid().'.'.$photo->guessExtension())->toMediaCollection('logo', 'local');

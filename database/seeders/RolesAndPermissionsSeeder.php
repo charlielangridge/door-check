@@ -16,6 +16,8 @@ class RolesAndPermissionsSeeder extends Seeder
         // create permissions
         Permission::firstOrCreate(['name' => 'access admin', 'guard_name' => 'web']);
         Permission::firstOrCreate(['name' => 'access staff', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'approve parent registrations', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'manage site documents', 'guard_name' => 'web']);
         Permission::firstOrCreate(['name' => 'process collections at any site', 'guard_name' => 'web']);
 
         app()[PermissionRegistrar::class]->forgetCachedPermissions();

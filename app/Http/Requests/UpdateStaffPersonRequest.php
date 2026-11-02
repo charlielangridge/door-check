@@ -3,15 +3,20 @@
 namespace App\Http\Requests;
 
 use App\Models\Adult;
+use App\Models\AdultAccess;
 use App\Models\Child;
 use App\Models\Site;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateStaffPersonRequest extends FormRequest
 {
     protected function prepareForValidation(): void
     {
         $this->merge(['also_known_as' => $this->input('also_known_as', [])]);
+        if ($this->has('email')) {
+            $this->merge(['email' => filled($this->input('email')) ? mb_strtolower(trim($this->input('email'))) : null]);
+        }
     }
 
     public function authorize(): bool
@@ -30,7 +35,7 @@ class UpdateStaffPersonRequest extends FormRequest
         return $this->user()->can('processCollections', $site);
     }
 
-    /** @return array<string, list<string>> */
+    /** @return array<string, mixed> */
     public function rules(): array
     {
         $rules = [
@@ -42,6 +47,14 @@ class UpdateStaffPersonRequest extends FormRequest
         ];
         if ($this->route('adult') !== null) {
             $rules['relationship'] = ['required', 'string', 'max:255'];
+            $rules['phone'] = ['sometimes', 'nullable', 'string', 'max:50'];
+            $adult = $this->route('adult');
+            abort_unless($adult instanceof Adult, 404);
+            $rules['email'] = ['sometimes', 'nullable', 'email', 'max:255', Rule::unique('adults', 'email')->ignore($adult->id), function (string $attribute, mixed $value, \Closure $fail) use ($adult): void {
+                if ($value !== $adult->email && AdultAccess::query()->where('adult_id', $adult->id)->exists()) {
+                    $fail('Email changes for adults with online access must use the verified adult-page update workflow.');
+                }
+            }];
         }
 
         return $rules;

@@ -12,6 +12,8 @@ const props = defineProps<{
         date_of_birth: string | null;
         also_known_as: string[];
         photo: string | null;
+        email?: string | null;
+        phone?: string | null;
     };
     action: string;
     relationship?: string | null;
@@ -28,6 +30,8 @@ const form = useForm({
     also_known_as: [...props.person.also_known_as],
     relationship: props.relationship ?? '',
     new_photo: null as File | null,
+    email: props.person.email ?? '',
+    phone: props.person.phone ?? '',
 });
 const choosePhoto = (event: Event): void => {
     const input = event.target as HTMLInputElement;
@@ -126,6 +130,28 @@ const save = (): void => {
                 <InputError :message="form.errors.also_known_as" />
             </div>
             <div v-if="adult" class="grid gap-2">
+                <Label for="person-email"
+                    >Email (optional without online access)</Label
+                >
+                <Input
+                    id="person-email"
+                    v-model="form.email"
+                    type="email"
+                    maxlength="255"
+                />
+                <InputError :message="form.errors.email" />
+                <p class="text-sm text-muted-foreground">
+                    Adults with online access must change their email through
+                    the verified adult-page workflow.
+                </p>
+                <Label for="person-phone">Phone number</Label>
+                <Input
+                    id="person-phone"
+                    v-model="form.phone"
+                    type="tel"
+                    maxlength="50"
+                />
+                <InputError :message="form.errors.phone" />
                 <Label for="person-relationship"
                     >Relationship to this child</Label
                 >

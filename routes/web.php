@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Welcome')->name('home');
 
+require __DIR__.'/parents.php';
+
 Route::get('admin/person-photos/{media}', [StaffMediaController::class, 'showForAdmin'])->middleware(['auth', 'can:access admin'])->name('admin.media.show');
 
 Route::get('staff', [StaffCollectionController::class, 'index'])->middleware(['auth', 'verified', EnsureStaffSession::class])->name('staff.index');

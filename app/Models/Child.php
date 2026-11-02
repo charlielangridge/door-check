@@ -25,7 +25,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 class Child extends Model implements \OwenIt\Auditing\Contracts\Auditable, HasMedia
 {
     use Auditable;
-    use GeneratesUuid, BindsOnUuid;
+    use BindsOnUuid, GeneratesUuid;
 
     /** @use HasFactory<ChildFactory> */
     use HasFactory;
@@ -35,7 +35,6 @@ class Child extends Model implements \OwenIt\Auditing\Contracts\Auditable, HasMe
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('photo')
-            ->singleFile()
             ->registerMediaConversions(function (?Media $media = null): void {
 
                 $this->addMediaConversion('large')
@@ -60,12 +59,12 @@ class Child extends Model implements \OwenIt\Auditing\Contracts\Auditable, HasMe
     public function adults(): BelongsToMany
     {
         return $this->belongsToMany(Adult::class, 'adult_child', 'child_id', 'adult_id')
-            ->using(AuditedMembership::class)->withPivot('relationship');
+            ->using(AuditedMembership::class)->withPivot('relationship', 'authorised_to_collect');
     }
 
     /** @return BelongsToMany<Site, $this, AuditedMembership> */
     public function sites(): BelongsToMany
     {
-        return $this->belongsToMany(Site::class, 'site_child', 'child_id', 'site_id')->using(AuditedMembership::class);
+        return $this->belongsToMany(Site::class, 'site_child', 'child_id', 'site_id')->using(AuditedMembership::class)->withPivot('is_active', 'is_approved');
     }
 }

@@ -58,6 +58,16 @@ class SitePolicy
         return true;
     }
 
+    public function approveParentRegistrations(User $user, Site $site): bool
+    {
+        return $user->can('approve parent registrations') && $this->processCollections($user, $site);
+    }
+
+    public function manageDocuments(User $user, Site $site): bool
+    {
+        return $user->can('manage site documents') && $this->processCollections($user, $site);
+    }
+
     /**
      * Determine whether the user can restore the model.
      */

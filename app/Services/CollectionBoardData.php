@@ -7,6 +7,7 @@ use App\CollectionRequestMatchPerson;
 use App\Models\Adult;
 use App\Models\Audit;
 use App\Models\Child;
+use App\Models\ChildAdultSite;
 use App\Models\CollectionRequest;
 use App\Models\Site;
 use Illuminate\Database\Eloquent\Builder;
@@ -60,7 +61,8 @@ class CollectionBoardData
     {
         $root = CollectionRequest::query()->with(['site', 'adult.media', 'media'])->findOrFail($request->groupId());
         $entries = $root->groupEntries()->with(['requestedChild.media', 'site'])->orderBy('id')->get();
-        $relationships = $root->adult?->children()->pluck('relationship', 'children.id')->all() ?? [];
+        $relationships = $root->adult?->children()->wherePivot('authorised_to_collect', true)
+            ->whereNotIn('children.id', ChildAdultSite::query()->where('site_id', $root->site_id)->where('adult_id', $root->adult_id)->where('is_linked', false)->select('child_id'))->pluck('relationship', 'children.id')->all() ?? [];
 
         return [
             'uuid' => $root->uuid,

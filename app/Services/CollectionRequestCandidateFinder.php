@@ -41,7 +41,12 @@ class CollectionRequestCandidateFinder
             }
 
             $results = $person->modelClass()::query()
-                ->whereHas('sites', fn (Builder $query): Builder => $query->whereKey($siteId))
+                ->whereHas('sites', function (Builder $query) use ($siteId, $person): void {
+                    $query->whereKey($siteId);
+                    if ($person === CollectionRequestMatchPerson::Child) {
+                        $query->where('site_child.is_active', true)->where('site_child.is_approved', true);
+                    }
+                })
                 ->select(['id', 'name', 'also_known_as'])
                 ->selectRaw('greatest('.implode(', ', $scores).') AS similarity', $bindings)
                 ->where(function (Builder $query) use ($variants): void {

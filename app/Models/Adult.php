@@ -18,6 +18,8 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
     'name',
     'date_of_birth',
     'also_known_as',
+    'email',
+    'phone',
 ])]
 class Adult extends Model implements \OwenIt\Auditing\Contracts\Auditable, HasMedia
 {
@@ -28,10 +30,16 @@ class Adult extends Model implements \OwenIt\Auditing\Contracts\Auditable, HasMe
 
     use InteractsWithMedia;
 
+    protected static function booted(): void
+    {
+        static::saving(function (self $adult): void {
+            $adult->email = filled($adult->email) ? mb_strtolower(trim($adult->email)) : null;
+        });
+    }
+
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('photo')
-            ->singleFile()
             ->registerMediaConversions(function (?Media $media = null): void {
 
                 $this->addMediaConversion('large')
@@ -55,12 +63,12 @@ class Adult extends Model implements \OwenIt\Auditing\Contracts\Auditable, HasMe
      */
     public function children(): BelongsToMany
     {
-        return $this->belongsToMany(Child::class, 'adult_child', 'adult_id', 'child_id')->using(AuditedMembership::class)->withPivot('relationship');
+        return $this->belongsToMany(Child::class, 'adult_child', 'adult_id', 'child_id')->using(AuditedMembership::class)->withPivot('relationship', 'authorised_to_collect');
     }
 
     /** @return BelongsToMany<Site, $this, AuditedMembership> */
     public function sites(): BelongsToMany
     {
-        return $this->belongsToMany(Site::class, 'site_adult', 'adult_id', 'site_id')->using(AuditedMembership::class);
+        return $this->belongsToMany(Site::class, 'site_adult', 'adult_id', 'site_id')->using(AuditedMembership::class)->withPivot('access_suspended');
     }
 }

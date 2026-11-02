@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
+import { index as childrenPage } from '@/wayfinder/App/Http/Controllers/ChildController';
 import { computed, ref } from 'vue';
 import StaffPersonEditForm from '@/components/StaffPersonEditForm.vue';
 import StaffChildRegistrationForm from '@/components/StaffChildRegistrationForm.vue';
@@ -42,6 +43,7 @@ const props = defineProps<{
     children: ChildDetails[];
     registrationDuplicates: RegistrationDuplicates;
     registeredChildUuid: string | null;
+    inactive: boolean;
 }>();
 const registering = ref(false);
 const registrationForm = ref<InstanceType<
@@ -92,6 +94,16 @@ const formatDateOfBirth = (date: string): string =>
 <template>
     <div class="space-y-4">
         <Head :title="site.name + ' Children'" />
+        <nav class="flex gap-3" aria-label="Child status filter">
+            <Button as-child :variant="inactive ? 'outline' : 'default'"
+                ><Link :href="childrenPage(site.slug)">Active</Link></Button
+            ><Button as-child :variant="inactive ? 'default' : 'outline'"
+                ><Link
+                    :href="childrenPage(site.slug, { query: { inactive: 1 } })"
+                    >Inactive</Link
+                ></Button
+            >
+        </nav>
         <div class="flex flex-wrap items-center justify-between gap-3">
             <p class="text-lg font-medium">
                 {{ children.length }}

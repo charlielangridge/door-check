@@ -38,6 +38,7 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'staffPermissions' => ['documents' => $request->user()?->can('manage site documents') ?? false],
             'auth' => [
                 'user' => $request->user(),
             ],
