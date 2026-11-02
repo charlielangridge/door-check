@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
-import { computed, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
+import StaffWizardProgress from '@/components/StaffWizardProgress.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { RegistrationReview } from '@/types/parent-review';
@@ -12,6 +13,9 @@ const props = defineProps<{
     siteSlug: string;
     canApprove: boolean;
 }>();
+const step = ref(0);
+const returning = ref(false);
+const selectedAdult = ref(0);
 const flags = () =>
     (props.registration.payload?.adults ?? []).map((adult) => ({
         is_manager: adult.is_manager,
@@ -39,6 +43,13 @@ watch(
         form.adults = flags();
     },
 );
+function advance(): void {
+    if (step.value === 1 && needsSave.value) {
+        act('review');
+    } else {
+        step.value++;
+    }
+}
 function act(action: string): void {
     form.action = action;
     form.post(
@@ -46,7 +57,30 @@ function act(action: string): void {
             site: props.siteSlug,
             registration: props.registration.uuid,
         }),
-        { preserveScroll: true },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                if (action === 'review') {
+                    step.value = 2;
+                }
+            },
+            onError: () => {
+                const keys = Object.keys(form.errors);
+                const adultError = keys.find((key) =>
+                    /^adult(?:s|_choices)\.\d+/.test(key),
+                );
+                if (adultError) {
+                    selectedAdult.value = Number(adultError.split('.')[1]);
+                }
+                step.value = keys.some((key) => key.startsWith('adult'))
+                    ? 1
+                    : keys.includes('documents')
+                      ? 2
+                      : keys.includes('child_choice')
+                        ? 0
+                        : 3;
+            },
+        },
     );
 }
 </script>
@@ -65,7 +99,13 @@ function act(action: string): void {
             {{ registration.email }} · DOB
             {{ registration.child_date_of_birth }}
         </p>
-        <p class="text-sm text-muted-foreground">
+        <p
+            v-if="
+                registration.status !== 'submitted' &&
+                registration.status !== 'approved'
+            "
+            class="text-sm text-muted-foreground"
+        >
             Invitation expires
             {{ new Date(registration.expires_at).toLocaleString('en-GB') }} ·
             {{ registration.failed_attempts }} failed DOB attempts
@@ -110,7 +150,13 @@ function act(action: string): void {
         <template
             v-if="registration.status === 'submitted' && registration.payload"
         >
-            <section class="space-y-2">
+            <StaffWizardProgress
+                :steps="['Child', 'Adults', 'Documents', 'Decision']"
+                :current="step"
+                :disabled="form.processing"
+                @select="step = $event"
+            />
+            <section v-show="step === 0" class="space-y-2">
                 <h4 class="font-semibold">Submitted child details</h4>
                 <img
                     v-if="registration.payload.has_photo"
@@ -132,9 +178,47 @@ function act(action: string): void {
                     Also known as
                     {{ registration.payload.also_known_as.join(', ') }}
                 </p>
+                <label
+                    v-if="canApprove && registration.duplicates?.child.length"
+                    class="grid gap-2"
+                >
+                    Possible duplicate child — choose explicitly
+                    <select
+                        v-model="form.child_choice"
+                        class="rounded-md border bg-background p-3"
+                    >
+                        <option value="">Choose a child</option>
+                        <option value="new">Create a different child</option>
+                        <option
+                            v-for="match in registration.duplicates.child"
+                            :key="match.id"
+                            :value="String(match.id)"
+                        >
+                            Link existing: {{ match.name }} (#{{ match.id }})
+                        </option>
+                    </select>
+                </label>
             </section>
+            <label v-if="step === 1" class="grid gap-2 text-sm font-medium"
+                >Adult to review<select
+                    v-model="selectedAdult"
+                    :disabled="form.processing"
+                    class="min-h-11 rounded-md border bg-background px-3"
+                >
+                    <option
+                        v-for="(adult, index) in registration.payload.adults"
+                        :key="adult.key"
+                        :value="index"
+                    >
+                        {{ index + 1 }} of
+                        {{ registration.payload.adults.length }} ·
+                        {{ adult.name }}
+                    </option>
+                </select></label
+            >
             <section
                 v-for="(adult, index) in registration.payload.adults"
+                v-show="step === 1 && selectedAdult === index"
                 :key="adult.key"
                 class="space-y-3 rounded-lg border p-4"
             >
@@ -209,7 +293,22 @@ function act(action: string): void {
                     </select>
                 </label>
             </section>
+            <div v-if="canApprove && step === 1" class="space-y-3">
+                <p class="text-sm text-muted-foreground">
+                    Collection permission belongs to the shared adult–child
+                    relationship. Management rights are specific to this
+                    nursery.
+                </p>
+                <Button
+                    v-if="needsSave"
+                    variant="outline"
+                    :disabled="form.processing"
+                    @click="act('review')"
+                    >Save review choices</Button
+                >
+            </div>
             <div
+                v-show="step === 2"
                 v-if="registration.outstanding.length"
                 class="space-y-2 rounded-lg border border-amber-500 p-4"
             >
@@ -229,78 +328,87 @@ function act(action: string): void {
                     >Send fresh acceptance links</Button
                 >
             </div>
-            <template v-if="canApprove">
+            <p
+                v-if="step === 2 && !registration.outstanding.length"
+                class="rounded-xl bg-muted p-4 text-sm"
+            >
+                All required document acceptances are complete.
+            </p>
+            <div v-show="step === 3" class="space-y-4">
                 <p class="text-sm text-muted-foreground">
-                    Collection permission belongs to the shared adult–child
-                    relationship. Management rights are specific to this
-                    nursery.
+                    Check the child and adult details before approving.
+                    {{
+                        registration.outstanding.length
+                            ? 'Document acceptance is still outstanding; approval is blocked.'
+                            : 'All required document acceptances are complete.'
+                    }}
                 </p>
-                <Button
-                    v-if="needsSave"
-                    variant="outline"
-                    :disabled="form.processing"
-                    @click="act('review')"
-                    >Save review choices</Button
-                >
-                <label
-                    v-if="registration.duplicates?.child.length"
-                    class="grid gap-2"
-                >
-                    Possible duplicate child — choose explicitly
-                    <select
-                        v-model="form.child_choice"
-                        class="rounded-md border bg-background p-3"
+                <template v-if="canApprove">
+                    <label class="flex min-h-11 items-center gap-3"
+                        ><input
+                            v-model="form.is_active"
+                            type="checkbox"
+                            class="size-5"
+                        />Make child active on approval</label
                     >
-                        <option value="">Choose a child</option>
-                        <option value="new">Create a different child</option>
-                        <option
-                            v-for="match in registration.duplicates.child"
-                            :key="match.id"
-                            :value="String(match.id)"
+                    <Button
+                        :disabled="
+                            form.processing ||
+                            registration.outstanding.length > 0 ||
+                            needsSave
+                        "
+                        @click="act('approve')"
+                        >{{
+                            form.is_active
+                                ? 'Approve and activate'
+                                : 'Approve as inactive'
+                        }}</Button
+                    >
+                    <Button
+                        variant="ghost"
+                        :disabled="form.processing"
+                        @click="returning = !returning"
+                        >Request corrections</Button
+                    >
+                    <form
+                        v-if="returning"
+                        class="space-y-3 border-t pt-4"
+                        @submit.prevent="act('return')"
+                    >
+                        <label class="grid gap-2"
+                            >Corrections required
+                            <textarea
+                                v-model="form.message"
+                                class="rounded-md border bg-background p-3"
+                                rows="3"
+                                required
+                                maxlength="5000"
+                            />
+                        </label>
+                        <Button variant="outline" :disabled="form.processing"
+                            >Return for corrections</Button
                         >
-                            Link existing: {{ match.name }} (#{{ match.id }})
-                        </option>
-                    </select>
-                </label>
-                <label class="flex min-h-11 items-center gap-3"
-                    ><input
-                        v-model="form.is_active"
-                        type="checkbox"
-                        class="size-5"
-                    />Make child active on approval</label
+                    </form>
+                </template>
+                <p v-else class="text-sm text-muted-foreground">
+                    A staff member with approval permission must make the final
+                    decision.
+                </p>
+            </div>
+            <div class="flex items-center justify-between gap-3 border-t pt-4">
+                <Button
+                    variant="outline"
+                    :disabled="step === 0 || form.processing"
+                    @click="step--"
+                    >Back</Button
                 >
                 <Button
-                    :disabled="
-                        form.processing ||
-                        registration.outstanding.length > 0 ||
-                        needsSave
-                    "
-                    @click="act('approve')"
-                    >{{
-                        form.is_active
-                            ? 'Approve and activate'
-                            : 'Approve as inactive'
-                    }}</Button
+                    v-if="step < 3"
+                    :disabled="form.processing"
+                    @click="advance"
+                    >Continue</Button
                 >
-                <form
-                    class="space-y-3 border-t pt-4"
-                    @submit.prevent="act('return')"
-                >
-                    <label class="grid gap-2"
-                        >Corrections required
-                        <textarea
-                            v-model="form.message"
-                            class="rounded-md border bg-background p-3"
-                            rows="3"
-                            required
-                            maxlength="5000"
-                        />
-                    </label>
-                    <Button variant="outline" :disabled="form.processing"
-                        >Return for corrections</Button
-                    >
-                </form>
-            </template>
+            </div>
         </template>
     </article>
 </template>

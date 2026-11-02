@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import StaffRegistrationReview from '@/components/StaffRegistrationReview.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,17 +71,71 @@ const review = useForm({
     adult_choice: '',
 });
 const showApproved = ref(false);
+const activeTab = ref('registrations');
+const inviteOpen = ref(false);
+const search = ref('');
+const selectedRegistration = ref(
+    props.registrations.find((item) => item.status !== 'approved')?.uuid ?? '',
+);
+const selectedUpdate = ref(props.updates[0]?.id ?? null);
+const updateDrafts = new Map<
+    number,
+    { message: string; adult_choice: string }
+>();
+watch(selectedUpdate, (id, previous) => {
+    if (previous !== null) {
+        updateDrafts.set(previous, {
+            message: review.message,
+            adult_choice: review.adult_choice,
+        });
+    }
+    review.reset();
+    review.clearErrors();
+    if (id !== null) {
+        Object.assign(review, updateDrafts.get(id) ?? {});
+    }
+});
+watch(
+    () => props.updates,
+    (updates) => {
+        if (!updates.some((item) => item.id === selectedUpdate.value)) {
+            selectedUpdate.value = updates[0]?.id ?? null;
+        }
+    },
+);
+const selectedChild = ref(props.children[0]?.id ?? null);
+const filteredRegistrations = computed(() =>
+    props.registrations.filter(
+        (item) =>
+            (showApproved.value || item.status !== 'approved') &&
+            (item.child_name + ' ' + item.email)
+                .toLowerCase()
+                .includes(search.value.toLowerCase()),
+    ),
+);
+const filteredChildren = computed(() =>
+    props.children.filter((item) =>
+        item.name.toLowerCase().includes(search.value.toLowerCase()),
+    ),
+);
 const membershipErrors = ref<string[]>([]);
 function sendInvite(): void {
     invite.post(store.url(props.site.slug), {
         preserveScroll: true,
-        onSuccess: () => invite.reset(),
+        onSuccess: () => {
+            invite.reset();
+            inviteOpen.value = false;
+        },
     });
 }
 function reviewProposal(id: number, action: string): void {
     review.action = action;
     review.post(reviewUpdate.url({ site: props.site.slug, update: id }), {
         preserveScroll: true,
+        onSuccess: () => {
+            updateDrafts.delete(id);
+            review.reset();
+        },
     });
 }
 function change(
@@ -111,67 +172,197 @@ function display(value: unknown): string {
         <p v-if="status" role="status" class="rounded-lg border bg-card p-4">
             {{ status }}
         </p>
-        <form
-            class="space-y-4 rounded-xl border bg-card p-5"
-            @submit.prevent="sendInvite"
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <p class="text-sm text-muted-foreground">
+                {{
+                    registrations.filter((item) => item.status === 'submitted')
+                        .length
+                }}
+                awaiting approval
+            </p>
+            <Button @click="inviteOpen = true">Invite parent</Button>
+        </div>
+        <nav
+            aria-label="Registration views"
+            class="flex flex-wrap gap-2 border-b pb-3"
         >
-            <h2 class="text-xl font-semibold">
-                Invite a parent to register a child
-            </h2>
-            <div class="grid gap-4 md:grid-cols-3">
-                <label class="grid gap-2"
-                    >Child’s full name
-                    <Input v-model="invite.name" required maxlength="255"
-                /></label>
-                <label class="grid gap-2"
-                    >Child’s date of birth
-                    <Input v-model="invite.date_of_birth" type="date" required
-                /></label>
-                <label class="grid gap-2"
-                    >Adult’s email
-                    <Input
-                        v-model="invite.email"
-                        type="email"
-                        required
-                        maxlength="255"
-                /></label>
+            <Button
+                v-for="tab in [
+                    { id: 'registrations', label: 'Registrations' },
+                    ...(canApprove
+                        ? [
+                              {
+                                  id: 'updates',
+                                  label:
+                                      'Proposed updates (' +
+                                      updates.length +
+                                      ')',
+                              },
+                          ]
+                        : []),
+                    { id: 'access', label: 'Child access' },
+                ]"
+                :key="tab.id"
+                :variant="activeTab === tab.id ? 'default' : 'ghost'"
+                :aria-pressed="activeTab === tab.id"
+                @click="
+                    activeTab = tab.id;
+                    search = '';
+                "
+                >{{ tab.label }}</Button
+            >
+        </nav>
+        <Dialog v-model:open="inviteOpen">
+            <DialogContent>
+                <DialogHeader
+                    ><DialogTitle>Invite a parent</DialogTitle
+                    ><DialogDescription
+                        >Send a secure link to register their
+                        child.</DialogDescription
+                    ></DialogHeader
+                >
+                <form class="space-y-4" @submit.prevent="sendInvite">
+                    <div class="grid gap-4">
+                        <label class="grid gap-2"
+                            >Child’s full name
+                            <Input
+                                v-model="invite.name"
+                                required
+                                maxlength="255"
+                        /></label>
+                        <label class="grid gap-2"
+                            >Child’s date of birth
+                            <Input
+                                v-model="invite.date_of_birth"
+                                type="date"
+                                required
+                        /></label>
+                        <label class="grid gap-2"
+                            >Adult’s email
+                            <Input
+                                v-model="invite.email"
+                                type="email"
+                                required
+                                maxlength="255"
+                        /></label>
+                    </div>
+                    <p
+                        v-for="error in invite.errors"
+                        :key="error"
+                        role="alert"
+                        class="text-sm text-red-700 dark:text-red-400"
+                    >
+                        {{ error }}
+                    </p>
+                    <Button :disabled="invite.processing"
+                        >Send invitation</Button
+                    >
+                </form>
+            </DialogContent>
+        </Dialog>
+        <section v-show="activeTab === 'registrations'" class="space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <Input
+                    v-model="search"
+                    aria-label="Search registrations"
+                    placeholder="Search child or email…"
+                    class="max-w-sm"
+                />
+                <label class="flex min-h-11 items-center gap-2 text-sm"
+                    ><input
+                        v-model="showApproved"
+                        type="checkbox"
+                        class="size-4"
+                    />Include approved</label
+                >
             </div>
-            <p
-                v-for="error in invite.errors"
-                :key="error"
-                role="alert"
-                class="text-sm text-red-700 dark:text-red-400"
-            >
-                {{ error }}
-            </p>
-            <Button :disabled="invite.processing">Send invitation</Button>
-        </form>
-        <section class="space-y-4">
-            <h2 class="text-2xl font-semibold">
-                Invitations and registrations
-            </h2>
-            <label class="flex min-h-11 items-center gap-3"
-                ><input
-                    v-model="showApproved"
-                    type="checkbox"
-                    class="size-5"
-                />Include approved registrations</label
-            >
-            <StaffRegistrationReview
-                v-for="registration in registrations.filter(
-                    (item) => showApproved || item.status !== 'approved',
-                )"
-                :key="registration.id"
-                :registration="registration"
-                :site-slug="site.slug"
-                :can-approve="canApprove"
-            />
-            <p v-if="!registrations.length" class="text-muted-foreground">
-                No parent invitations yet.
-            </p>
+            <div class="grid items-start gap-5 lg:grid-cols-3">
+                <div
+                    class="space-y-2 rounded-3xl border border-dashed bg-background p-3"
+                >
+                    <button
+                        v-for="item in filteredRegistrations"
+                        :key="item.uuid"
+                        type="button"
+                        class="w-full rounded-xl border p-3 text-left transition hover:bg-muted"
+                        :class="
+                            selectedRegistration === item.uuid
+                                ? 'border-primary bg-muted'
+                                : 'border-transparent'
+                        "
+                        :aria-pressed="selectedRegistration === item.uuid"
+                        @click="selectedRegistration = item.uuid"
+                    >
+                        <span class="block font-semibold">{{
+                            item.child_name
+                        }}</span>
+                        <span
+                            class="block truncate text-sm text-muted-foreground"
+                            >{{ item.email }}</span
+                        >
+                        <span
+                            class="mt-2 inline-block rounded-full bg-muted px-2 py-1 text-xs capitalize"
+                            >{{
+                                item.status === 'submitted'
+                                    ? 'Awaiting approval'
+                                    : item.status
+                            }}</span
+                        >
+                    </button>
+                    <p
+                        v-if="!filteredRegistrations.length"
+                        class="p-3 text-sm text-muted-foreground"
+                    >
+                        No matching registrations.
+                    </p>
+                </div>
+                <div class="lg:col-span-2">
+                    <StaffRegistrationReview
+                        v-for="registration in registrations"
+                        v-show="selectedRegistration === registration.uuid"
+                        :key="registration.id"
+                        :registration="registration"
+                        :site-slug="site.slug"
+                        :can-approve="canApprove"
+                    />
+                    <p
+                        v-if="!selectedRegistration"
+                        class="rounded-3xl border border-dashed p-6 text-muted-foreground"
+                    >
+                        Select a registration to review.
+                    </p>
+                </div>
+            </div>
         </section>
-        <section v-if="canApprove && updates.length" class="space-y-4">
-            <h2 class="text-2xl font-semibold">Proposed details updates</h2>
+        <section
+            v-if="canApprove"
+            v-show="activeTab === 'updates'"
+            class="space-y-4"
+        >
+            <label
+                v-if="updates.length"
+                class="grid max-w-md gap-2 text-sm font-medium"
+                >Choose an update<select
+                    v-model="selectedUpdate"
+                    :disabled="review.processing"
+                    class="min-h-11 rounded-md border bg-background px-3"
+                >
+                    <option
+                        v-for="item in updates"
+                        :key="item.id"
+                        :value="item.id"
+                    >
+                        {{ item.submitted_by }} —
+                        {{ item.kind.replaceAll('_', ' ') }}
+                    </option>
+                </select></label
+            >
+            <p
+                v-else
+                class="rounded-3xl border border-dashed p-6 text-muted-foreground"
+            >
+                No proposed updates awaiting review.
+            </p>
             <p
                 v-for="error in review.errors"
                 :key="error"
@@ -181,7 +372,9 @@ function display(value: unknown): string {
                 {{ error }}
             </p>
             <article
-                v-for="update in updates"
+                v-for="update in updates.filter(
+                    (item) => item.id === selectedUpdate,
+                )"
                 :key="update.id"
                 class="space-y-4 rounded-xl border bg-card p-5"
             >
@@ -189,11 +382,11 @@ function display(value: unknown): string {
                     {{ update.submitted_by }} —
                     {{ update.kind.replaceAll('_', ' ') }}
                 </h3>
-                <div class="grid gap-4 md:grid-cols-2">
-                    <section>
-                        <h4 class="font-medium">
-                            Approved details when proposed
-                        </h4>
+                <div class="space-y-4">
+                    <details class="rounded-lg border p-3">
+                        <summary class="cursor-pointer text-sm font-medium">
+                            View previously approved details
+                        </summary>
                         <dl>
                             <template
                                 v-for="(value, key) in update.original ?? {}"
@@ -206,7 +399,7 @@ function display(value: unknown): string {
                                 <dd>{{ display(value) }}</dd></template
                             >
                         </dl>
-                    </section>
+                    </details>
                     <section>
                         <h4 class="font-medium">Proposed details</h4>
                         <dl>
@@ -274,8 +467,27 @@ function display(value: unknown): string {
                 </div>
             </article>
         </section>
-        <section class="space-y-4">
-            <h2 class="text-2xl font-semibold">Child and adult access</h2>
+        <section v-show="activeTab === 'access'" class="space-y-4">
+            <label class="grid max-w-md gap-2 text-sm font-medium"
+                >Choose a child<select
+                    v-model="selectedChild"
+                    class="min-h-11 rounded-md border bg-background px-3"
+                >
+                    <option
+                        v-for="item in children"
+                        :key="item.id"
+                        :value="item.id"
+                    >
+                        {{ item.name }}{{ item.is_active ? '' : ' (inactive)' }}
+                    </option>
+                </select></label
+            >
+            <p
+                v-if="!children.length"
+                class="rounded-3xl border border-dashed p-6 text-muted-foreground"
+            >
+                No children at this nursery.
+            </p>
             <div
                 v-if="membershipErrors.length"
                 role="alert"
@@ -292,7 +504,9 @@ function display(value: unknown): string {
                 overrides.
             </p>
             <article
-                v-for="child in children"
+                v-for="child in filteredChildren.filter(
+                    (item) => item.id === selectedChild,
+                )"
                 :key="child.id"
                 class="space-y-4 rounded-xl border bg-card p-5"
             >
@@ -310,14 +524,14 @@ function display(value: unknown): string {
                         "
                     />Active at this nursery</label
                 >
-                <section
+                <details
                     v-for="adult in child.adults"
                     :key="adult.id"
                     class="space-y-2 rounded-lg border p-4"
                 >
-                    <h4 class="font-semibold">
+                    <summary class="min-h-11 cursor-pointer py-2 font-semibold">
                         {{ adult.name }} — {{ adult.relationship }}
-                    </h4>
+                    </summary>
                     <label class="flex min-h-11 items-center gap-3"
                         ><input
                             :checked="adult.authorised_to_collect"
@@ -423,7 +637,7 @@ function display(value: unknown): string {
                                 .join(', ')
                         }}
                     </p>
-                </section>
+                </details>
             </article>
         </section>
     </div>
