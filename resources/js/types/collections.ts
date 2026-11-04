@@ -73,8 +73,7 @@ export interface StaffSite {
 export interface BoardRequest {
     uuid: string;
     adult_name: string;
-    adult_photo: string | null;
-    adult_photo_pending: boolean;
+    requester_photo: string | null;
     requested_at: string;
     previous_day: boolean;
     children: {

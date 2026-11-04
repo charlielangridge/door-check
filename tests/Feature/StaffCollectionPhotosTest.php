@@ -36,8 +36,7 @@ test('staff see stored adult and child photos and can confirm checks without a p
         ->assertJsonPath('requester_photo', route('staff.media.show', ['site' => $site->slug, 'media' => $requesterPhoto]));
     $this->get(route('staff.board', $site->slug))->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('requests.0.adult_photo', route('staff.media.show', ['site' => $site->slug, 'media' => $adultPhoto]))
-            ->where('requests.0.adult_photo_pending', false));
+            ->where('requests.0.requester_photo', route('staff.media.show', ['site' => $site->slug, 'media' => $requesterPhoto])));
     foreach ([$adultPhoto, $childPhoto, $requesterPhoto] as $photo) {
         $this->get(route('staff.media.show', ['site' => $site->slug, 'media' => $photo]))
             ->assertOk()->assertHeader('Content-Type', 'image/jpeg');
@@ -49,21 +48,37 @@ test('staff see stored adult and child photos and can confirm checks without a p
     expect($root->fresh())->reviewed_at->not->toBeNull()->photo_verification_reason->toBeNull();
 })->with(['photo', 'logo']);
 
-test('the board distinguishes an adult photo awaiting matching from an unavailable photo', function (CollectionRequestStatus $status, bool $pending): void {
+test('the board shows the submitted photo regardless of adult matching progress', function (CollectionRequestStatus $status): void {
+    Storage::fake('local');
     Queue::fake();
     $site = Site::factory()->create();
-    CollectionRequest::factory()->for($site)->createQuietly(['adult_match_status' => $status]);
+    $root = CollectionRequest::factory()->for($site)->createQuietly(['adult_match_status' => $status]);
+    $photo = $root->addMedia(UploadedFile::fake()->image('requester.jpg'))->toMediaCollection('requester_photo', 'local');
     $staff = User::factory()->hasAttached($site, [], 'staffSites')->create();
     $staff->assignRole('staff');
 
     $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp])
         ->get(route('staff.board', $site->slug))->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('requests.0.adult_photo', null)
-            ->where('requests.0.adult_photo_pending', $pending));
+            ->where('requests.0.requester_photo', route('staff.media.show', ['site' => $site->slug, 'media' => $photo])));
 })->with([
-    [CollectionRequestStatus::Pending, true],
-    [CollectionRequestStatus::Processing, true],
-    [CollectionRequestStatus::NoMatchFound, false],
-    [CollectionRequestStatus::MatchingFailed, false],
+    CollectionRequestStatus::Pending,
+    CollectionRequestStatus::Processing,
+    CollectionRequestStatus::NoMatchFound,
+    CollectionRequestStatus::MatchingFailed,
 ]);
+
+test('the board does not substitute a stored adult photo when no request photo was submitted', function (): void {
+    Storage::fake('local');
+    Queue::fake();
+    $site = Site::factory()->create();
+    $adult = Adult::factory()->hasAttached($site, [], 'sites')->create();
+    $adult->addMedia(UploadedFile::fake()->image('stored-adult.jpg'))->toMediaCollection('photo', 'local');
+    CollectionRequest::factory()->for($site)->createQuietly(['adult_id' => $adult->id]);
+    $staff = User::factory()->hasAttached($site, [], 'staffSites')->create();
+    $staff->assignRole('staff');
+
+    $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp])
+        ->get(route('staff.board', $site->slug))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('requests.0.requester_photo', null));
+});

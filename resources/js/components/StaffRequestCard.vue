@@ -44,9 +44,8 @@ const { show } = useStaffCollectionRoutes(props.siteSlug);
                 </p>
             </div>
             <StaffPhoto
-                :src="request.adult_photo"
-                :pending="request.adult_photo_pending"
-                :alt="`Stored photo of ${request.adult_name}`"
+                :src="request.requester_photo"
+                :alt="`Photo submitted with ${request.adult_name}'s collection request`"
                 compact
                 cover
                 class="size-20 rounded-full"
