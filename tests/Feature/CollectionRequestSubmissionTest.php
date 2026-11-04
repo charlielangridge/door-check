@@ -10,10 +10,11 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
-test('guests can open the collection form for a site', function (): void {
+test('guests can open the collection form with a claimed entry', function (): void {
     $site = Site::factory()->create();
+    $entryParameters = $this->openCollectionEntry($site);
 
-    $this->get(route('collection-request.create', $site))
+    $this->get(route('collection-request.create', $entryParameters))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('CollectionRequest/Create')
@@ -25,10 +26,11 @@ test('guests can open the collection form for a site', function (): void {
 test('the collection form provides a site slug that can be used to submit a request', function (): void {
     Queue::fake([IngestCollectionRequestJob::class]);
     $site = Site::factory()->create();
+    $entryParameters = $this->openCollectionEntry($site);
 
-    $page = $this->get(route('collection-request.create', $site))->assertOk();
+    $page = $this->get(route('collection-request.create', $entryParameters))->assertOk();
 
-    $response = $this->post(route('collection-request.store', ['site' => $page->inertiaProps('site.slug')]), [
+    $response = $this->post(route('collection-request.store', ['site' => $page->inertiaProps('site.slug'), 'entry' => $page->inertiaProps('entry.uuid')]), [
         'requester_name_text' => 'Jane Smith',
         'requested_child_text' => 'Alex Smith',
     ])->assertRedirect();
@@ -42,8 +44,9 @@ test('the collection form provides a site slug that can be used to submit a requ
 test('submission opens the status page before queued matching runs and subsequent visits show progress', function (): void {
     config(['queue.default' => 'database']);
     $site = Site::factory()->create();
+    $entryParameters = $this->openCollectionEntry($site);
 
-    $response = $this->post(route('collection-request.store', $site), [
+    $response = $this->post(route('collection-request.store', $entryParameters), [
         'requester_name_text' => 'Jane Smith',
         'requested_child_text' => 'Alex Smith',
     ]);
@@ -86,9 +89,10 @@ test('guests can submit without evidence and the URL determines the site', funct
     Queue::fake([IngestCollectionRequestJob::class]);
     $this->travelTo('2026-10-24 12:00:00');
     $site = Site::factory()->create();
+    $entryParameters = $this->openCollectionEntry($site);
     $otherSite = Site::factory()->create();
 
-    $this->post(route('collection-request.store', $site), [
+    $this->post(route('collection-request.store', $entryParameters), [
         'requester_name_text' => 'Jane Smith',
         'requested_child_text' => 'Alex Smith',
         'site_id' => $otherSite->id,
@@ -121,8 +125,9 @@ test('a requester photo and precise GPS coordinates are attached to the request'
     Queue::fake([IngestCollectionRequestJob::class]);
     Storage::fake('local');
     $site = Site::factory()->create();
+    $entryParameters = $this->openCollectionEntry($site);
 
-    $this->post(route('collection-request.store', $site), [
+    $this->post(route('collection-request.store', $entryParameters), [
         'requester_name_text' => 'Jane Smith',
         'requested_child_text' => 'Alex Smith',
         'requester_latitude' => 51.50735123,
@@ -145,14 +150,15 @@ test('a requester photo and precise GPS coordinates are attached to the request'
 test('invalid collection inputs return useful errors without saving', function (array $invalid, array $errors): void {
     Queue::fake([IngestCollectionRequestJob::class]);
     $site = Site::factory()->create();
+    $entryParameters = $this->openCollectionEntry($site);
 
-    $this->from(route('collection-request.create', $site))
-        ->post(route('collection-request.store', $site), [
+    $this->from(route('collection-request.create', $entryParameters))
+        ->post(route('collection-request.store', $entryParameters), [
             'requester_name_text' => 'Jane Smith',
             'requested_child_text' => 'Alex Smith',
             ...$invalid,
         ])
-        ->assertRedirectToRoute('collection-request.create', $site)
+        ->assertRedirectToRoute('collection-request.create', $entryParameters)
         ->assertSessionHasErrors($errors);
 
     $this->assertDatabaseCount('collection_request', 0);
@@ -183,8 +189,9 @@ test('invalid collection inputs return useful errors without saving', function (
 test('invalid photos are rejected without saving a request', function (Closure $upload): void {
     Queue::fake([IngestCollectionRequestJob::class]);
     $site = Site::factory()->create();
+    $entryParameters = $this->openCollectionEntry($site);
 
-    $this->post(route('collection-request.store', $site), [
+    $this->post(route('collection-request.store', $entryParameters), [
         'requester_name_text' => 'Jane Smith',
         'requested_child_text' => 'Alex Smith',
         'photo' => $upload(),
@@ -200,15 +207,16 @@ test('invalid photos are rejected without saving a request', function (Closure $
 test('precognition validates names without creating a collection request', function (): void {
     Queue::fake([IngestCollectionRequestJob::class]);
     $site = Site::factory()->create();
+    $entryParameters = $this->openCollectionEntry($site);
 
     $this->withPrecognition()
-        ->postJson(route('collection-request.store', $site), [
+        ->postJson(route('collection-request.store', $entryParameters), [
             'requester_name_text' => 'Jane Smith',
             'requested_child_text' => 'Alex Smith',
         ])->assertSuccessfulPrecognition();
 
     $this->withPrecognition()
-        ->postJson(route('collection-request.store', $site), [
+        ->postJson(route('collection-request.store', $entryParameters), [
             'requester_name_text' => '',
             'requested_child_text' => 'Alex Smith',
         ])->assertUnprocessable()
@@ -233,8 +241,9 @@ test('an unknown site cannot receive a collection request', function (): void {
 test('a photo is required when the form reports a working camera', function (bool|string $available): void {
     Queue::fake([IngestCollectionRequestJob::class]);
     $site = Site::factory()->create();
+    $entryParameters = $this->openCollectionEntry($site);
 
-    $this->post(route('collection-request.store', $site), [
+    $this->post(route('collection-request.store', $entryParameters), [
         'requester_name_text' => 'Jane Smith',
         'requested_child_text' => 'Alex Smith',
         'camera_available' => $available,
@@ -249,8 +258,9 @@ test('a photo is required when the form reports a working camera', function (boo
 test('GPS can be saved without a photo when the camera is unavailable', function (bool|string $available): void {
     Queue::fake([IngestCollectionRequestJob::class]);
     $site = Site::factory()->create();
+    $entryParameters = $this->openCollectionEntry($site);
 
-    $this->post(route('collection-request.store', $site), [
+    $this->post(route('collection-request.store', $entryParameters), [
         'requester_name_text' => 'Jane Smith',
         'requested_child_text' => 'Alex Smith',
         'camera_available' => $available,

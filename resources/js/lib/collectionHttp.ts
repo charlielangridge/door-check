@@ -11,6 +11,7 @@ export class CollectionHttpError extends Error {
 export async function collectionHttp<T>(
     url: string,
     data?: Record<string, unknown>,
+    signal?: AbortSignal,
 ): Promise<T> {
     const xsrf = document.cookie
         .split('; ')
@@ -20,6 +21,7 @@ export async function collectionHttp<T>(
         method: data ? 'POST' : 'GET',
         credentials: 'same-origin',
         cache: 'no-store',
+        signal,
         headers: {
             Accept: 'application/json',
             'X-Requested-With': 'XMLHttpRequest',

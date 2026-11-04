@@ -48,8 +48,12 @@ class AuditCollectionActivity
             $this->audit->record('admin_viewed', $request->user(), ['route' => $request->route()?->getName()]);
         }
 
-        if ($request->is('staff', 'staff/*', 'admin/staff/*', 'collection-status/*')) {
+        $isCollectionEntry = $request->is('collection-request/*') || $request->routeIs('collection-display.*');
+        if ($request->is('staff', 'staff/*', 'admin/staff/*', 'collection-status/*') || $isCollectionEntry) {
             $response->headers->set('Cache-Control', 'private, no-store');
+        }
+        if ($isCollectionEntry) {
+            $response->headers->set('Referrer-Policy', 'no-referrer');
         }
 
         return $response;

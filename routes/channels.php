@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\CollectionEntryDisplay;
 use App\Models\CollectionRequest;
 use App\Models\Site;
 use App\Models\User;
@@ -12,6 +13,13 @@ Broadcast::channel('staff.{siteId}', function (User $user, string $siteId): bool
     $site = Site::query()->find($siteId);
 
     return $site !== null && $user->hasVerifiedEmail() && $user->can('processCollections', $site)
+        && resolve(StaffSession::class)->isCurrent(request());
+});
+
+Broadcast::channel('collection-entry.{uuid}', function (User $user, string $uuid): bool {
+    $display = CollectionEntryDisplay::query()->with('site')->where('uuid', $uuid)->first();
+
+    return $display !== null && $user->hasVerifiedEmail() && $user->can('processCollections', $display->site)
         && resolve(StaffSession::class)->isCurrent(request());
 });
 

@@ -18,7 +18,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 use Livewire\Livewire;
 use Spatie\MediaLibrary\Conversions\Jobs\PerformConversionsJob;
 
-test('each site row links to that venues staff dashboard and collection request form in new tabs', function (): void {
+test('each site row links to that venues staff dashboard and collection QR display in new tabs', function (): void {
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     $admin = User::factory()->administrator()->globalCollector()->create();
     $site = Site::factory()->create();
@@ -26,7 +26,7 @@ test('each site row links to that venues staff dashboard and collection request 
 
     Livewire::test(ListSites::class)
         ->assertActionExists(TestAction::make('staffDashboard')->table($site), fn (Action $action): bool => $action->getUrl() === route('staff.board', $site->slug) && $action->shouldOpenUrlInNewTab())
-        ->assertActionExists(TestAction::make('collectionRequest')->table($site), fn (Action $action): bool => $action->getUrl() === route('collection-request.create', $site->slug) && $action->shouldOpenUrlInNewTab());
+        ->assertActionExists(TestAction::make('collectionRequest')->table($site), fn (Action $action): bool => $action->getUrl() === route('collection-display.show', $site->slug) && $action->shouldOpenUrlInNewTab());
 });
 
 test('an admin opens the selected venue without changing their own staff assignment', function (): void {

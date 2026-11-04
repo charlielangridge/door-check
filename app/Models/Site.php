@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use OwenIt\Auditing\Auditable;
 use Spatie\Image\Enums\Fit;
 use Spatie\MediaLibrary\HasMedia;
@@ -25,6 +26,18 @@ use Spatie\Sluggable\Attributes\Sluggable;
 #[Sluggable(from: 'name', to: 'slug', onUpdate: false)]
 class Site extends Model implements \OwenIt\Auditing\Contracts\Auditable, HasMedia
 {
+    /** @return HasMany<CollectionEntryDisplay, $this> */
+    public function displays(): HasMany
+    {
+        return $this->hasMany(CollectionEntryDisplay::class);
+    }
+
+    /** @return HasManyThrough<CollectionEntry, CollectionEntryDisplay, $this> */
+    public function entries(): HasManyThrough
+    {
+        return $this->hasManyThrough(CollectionEntry::class, CollectionEntryDisplay::class);
+    }
+
     /** @return HasMany<ParentRegistration, $this> */
     public function registrations(): HasMany
     {

@@ -185,9 +185,9 @@ onBeforeUnmount(() => {
         </p>
         <Link
             v-if="collection.finished"
-            :href="create(collection.site)"
+            :href="create({ site: collection.site.slug })"
             class="text-center underline underline-offset-4"
-            >Start a new request</Link
+            >Scan again to start a new request</Link
         >
     </main>
 </template>

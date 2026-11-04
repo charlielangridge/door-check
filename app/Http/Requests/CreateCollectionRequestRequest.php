@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\CollectionEntry;
 use Illuminate\Foundation\Http\FormRequest;
 
 class CreateCollectionRequestRequest extends FormRequest
@@ -9,6 +10,11 @@ class CreateCollectionRequestRequest extends FormRequest
     /** @return array<string, list<string>> */
     public function rules(): array
     {
+        $entry = $this->route('entry');
+        if ($entry instanceof CollectionEntry && $entry->collection_request_id !== null) {
+            return [];
+        }
+
         return [
             'requester_name_text' => ['required', 'string', 'max:255'],
             'requested_child_text' => ['required', 'string', 'max:255'],
@@ -28,11 +34,6 @@ class CreateCollectionRequestRequest extends FormRequest
             'requester_latitude' => 'latitude',
             'requester_longitude' => 'longitude',
         ];
-    }
-
-    public function authorize(): bool
-    {
-        return true;
     }
 
     /** @return array<string, string> */

@@ -3,40 +3,58 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CreateCollectionRequestRequest;
+use App\Models\CollectionEntry;
 use App\Models\CollectionRequest;
 use App\Models\Site;
+use App\Services\CollectionEntryAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class CollectionRequestController extends Controller
 {
     public function index(): void {}
 
-    public function create(Site $site): Response
+    public function create(Request $request, Site $site, CollectionEntryAccess $access, ?CollectionEntry $entry = null): Response|HttpResponse
     {
-        return Inertia::render('CollectionRequest/Create', [
-            'site' => [
-                'name' => $site->name,
-                'uuid' => $site->uuid,
-                'slug' => $site->slug,
-                'logo' => $site->logoUrl(),
-            ],
-        ]);
-
-    }
-
-    public function store(CreateCollectionRequestRequest $request, Site $site): RedirectResponse
-    {
-        $browserKey = $request->cookie('collection_browser');
-        if (! is_string($browserKey) || strlen($browserKey) !== 64) {
-            $browserKey = Str::random(64);
+        $siteData = [...$site->only(['name', 'uuid', 'slug']), 'logo' => $site->logoUrl()];
+        if ($entry === null) {
+            return Inertia::render('CollectionRequest/ScanRequired', ['site' => $siteData]);
         }
 
-        $collectionRequest = DB::transaction(function () use ($request, $site, $browserKey): CollectionRequest {
+        $browserKey = $access->browserKey($request);
+        $entry = $access->claim($site, $entry, $browserKey);
+        if ($entry === null) {
+            return Inertia::render('CollectionRequest/ScanRequired', ['site' => $siteData]);
+        }
+
+        if ($entry->collection_request_id !== null) {
+            return to_route('collection-status.show', $entry->collectionRequest);
+        }
+
+        $response = Inertia::render('CollectionRequest/Create', [
+            'site' => $siteData,
+            'entry' => ['uuid' => $entry->uuid, 'remaining_ms' => max(0, (int) now()->diffInMilliseconds($entry->form_expires_at, false))],
+        ])->toResponse($request);
+        $response->headers->setCookie(cookie('collection_browser', $browserKey, 43200, secure: $request->isSecure(), httpOnly: true, sameSite: 'lax'));
+
+        return $response;
+    }
+
+    public function store(CreateCollectionRequestRequest $request, Site $site, CollectionEntry $entry, CollectionEntryAccess $access): RedirectResponse
+    {
+        $browserKey = $access->browserKey($request);
+
+        $collectionRequest = DB::transaction(function () use ($request, $site, $browserKey, $entry, $access): CollectionRequest {
+            $entry = CollectionEntry::query()->whereKey($entry->getKey())->lockForUpdate()->firstOrFail();
+            abort_unless($access->allows($request, $site, $entry), 403);
+            if ($entry->collection_request_id !== null) {
+                return $entry->collectionRequest;
+            }
+
             $collectionRequest = $site->collectionRequests()->make([
                 ...$request->safe()->only([
                     'requester_name_text',
@@ -55,8 +73,11 @@ class CollectionRequestController extends Controller
                     ->toMediaCollection('requester_photo');
             }
 
+            $entry->collection_request_id = $collectionRequest->getKey();
+            $entry->save();
+
             return $collectionRequest;
-        });
+        }, 3);
 
         return to_route('collection-status.show', $collectionRequest)
             ->withCookie(cookie('collection_browser', $browserKey, 43200, secure: $request->isSecure(), httpOnly: true, sameSite: 'lax'));

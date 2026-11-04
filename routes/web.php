@@ -1,12 +1,14 @@
 <?php
 
 use App\Http\Controllers\ChildController;
+use App\Http\Controllers\CollectionEntryDisplayController;
 use App\Http\Controllers\CollectionRequestController;
 use App\Http\Controllers\CollectionStatusController;
 use App\Http\Controllers\StaffChildRegistrationController;
 use App\Http\Controllers\StaffCollectionController;
 use App\Http\Controllers\StaffMediaController;
 use App\Http\Controllers\StaffPersonController;
+use App\Http\Middleware\EnsureCollectionEntry;
 use App\Http\Middleware\EnsureStaffSession;
 use Illuminate\Foundation\Http\Middleware\HandlePrecognitiveRequests;
 use Illuminate\Support\Facades\Route;
@@ -44,10 +46,16 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
 
 require __DIR__.'/settings.php';
 
-Route::get('collection-request/{site:slug}', [CollectionRequestController::class, 'create'])->name('collection-request.create');
-Route::post('collection-request/{site:slug}', [CollectionRequestController::class, 'store'])
-    ->middleware(HandlePrecognitiveRequests::class)
+Route::get('collection-request/{site:slug}/{entry:uuid?}', [CollectionRequestController::class, 'create'])->whereUuid('entry')->name('collection-request.create');
+Route::post('collection-request/{site:slug}/{entry:uuid?}', [CollectionRequestController::class, 'store'])
+    ->middleware([EnsureCollectionEntry::class, HandlePrecognitiveRequests::class])->whereUuid('entry')
     ->name('collection-request.store');
 
 Route::get('collection-status/{collectionRequest:uuid}', [CollectionStatusController::class, 'show'])->name('collection-status.show');
 Route::post('collection-status/{collectionRequest:uuid}/children', [CollectionStatusController::class, 'store'])->name('collection-status.children.store')->middleware('throttle:20,1');
+
+Route::post('sites/{site:slug}/collection-displays/{display:uuid}', [CollectionEntryDisplayController::class, 'update'])
+    ->middleware(['auth', 'verified', EnsureStaffSession::class])->whereUuid('display')->name('collection-display.update');
+
+Route::get('/{site:slug}', [CollectionEntryDisplayController::class, 'show'])
+    ->middleware(['auth', 'verified', EnsureStaffSession::class])->name('collection-display.show');

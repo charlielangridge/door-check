@@ -36,7 +36,8 @@ test('saved names are forgotten only when an adult or child has no match', funct
 test('submission redirects the adult to their private status screen', function (): void {
     Queue::fake([IngestCollectionRequestJob::class]);
     $site = Site::factory()->create();
-    $response = $this->post(route('collection-request.store', $site), [
+    $entryParameters = $this->openCollectionEntry($site);
+    $response = $this->post(route('collection-request.store', $entryParameters), [
         'requester_name_text' => 'David Jones', 'requested_child_text' => 'Sam Jones',
     ]);
     $request = CollectionRequest::sole();
@@ -47,7 +48,8 @@ test('submission redirects the adult to their private status screen', function (
 });
 
 test('only the submitting browser can see the public status and internal checks stay private', function (): void {
-    $request = CollectionRequest::factory()->createQuietly([
+    $site = Site::factory()->create();
+    $request = CollectionRequest::factory()->for($site)->createQuietly([
         'browser_key_hash' => hash('sha256', str_repeat('a', 64)),
         'collection_state' => ChildCollectionState::Cancelled,
         'cancellation_reason' => 'not_authorised', 'cancellation_notes' => 'Internal staff explanation',

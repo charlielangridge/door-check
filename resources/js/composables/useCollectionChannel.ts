@@ -15,22 +15,28 @@ interface Subscription {
 }
 const subscriptions = new Map<string, Subscription>();
 
+export function getCollectionEcho(): Echo<'reverb'> | null {
+    if (!import.meta.env.VITE_REVERB_APP_KEY) return null;
+    echo ??= new Echo({
+        broadcaster: 'reverb',
+        Pusher,
+        key: import.meta.env.VITE_REVERB_APP_KEY,
+        wsHost: import.meta.env.VITE_REVERB_HOST ?? window.location.hostname,
+        wsPort: Number(import.meta.env.VITE_REVERB_PORT ?? 80),
+        wssPort: Number(import.meta.env.VITE_REVERB_PORT ?? 443),
+        forceTLS: import.meta.env.VITE_REVERB_SCHEME === 'https',
+        enabledTransports: ['ws', 'wss'],
+    });
+    return echo;
+}
+
 export function useCollectionChannel(name: string, changed: ChangeListener) {
     const live = ref(false);
     const configured = Boolean(import.meta.env.VITE_REVERB_APP_KEY);
     onMounted(() => {
         if (!configured) return;
-        echo ??= new Echo({
-            broadcaster: 'reverb',
-            Pusher,
-            key: import.meta.env.VITE_REVERB_APP_KEY,
-            wsHost:
-                import.meta.env.VITE_REVERB_HOST ?? window.location.hostname,
-            wsPort: Number(import.meta.env.VITE_REVERB_PORT ?? 80),
-            wssPort: Number(import.meta.env.VITE_REVERB_PORT ?? 443),
-            forceTLS: import.meta.env.VITE_REVERB_SCHEME === 'https',
-            enabledTransports: ['ws', 'wss'],
-        });
+        echo = getCollectionEcho();
+        if (!echo) return;
         const existing = subscriptions.get(name);
         if (existing) {
             existing.listeners.set(changed, live);

@@ -22,6 +22,12 @@ A request at exactly one site, naming the adult seeking to collect one or more c
 **Collection status screen**:
 The screen shown to the collecting adult after submission, reporting the progress of their collection request.
 
+**Collection entry display**:
+A site-specific screen operated by staff authorised for that site, showing the site's logo and a QR code through which an adult can open the collection request form without signing in.
+
+**Collection entry token**:
+A single-use invitation carried by the display's QR code, admitting one adult's browser to the collection request form. Opening the link claims the invitation and replaces the displayed QR code; the admitted browser retains access while completing the form, including after a refresh.
+
 **Child collection**:
 An individual child's part of a collection request, with its own checks and progress through preparation to collection or cancellation. Children within the same request can progress independently.
 
