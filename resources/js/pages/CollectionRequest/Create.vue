@@ -7,9 +7,14 @@ import RequesterPhoto from '@/components/RequesterPhoto.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    forgetCollectionNames,
+    readCollectionNames,
+    rememberCollectionNames,
+} from '@/lib/collectionNames';
 
 const props = defineProps<{
-    site: { name: string; uuid: string; logo: string | null };
+    site: { name: string; uuid: string; slug: string; logo: string | null };
 }>();
 
 const form = useForm({
@@ -19,7 +24,7 @@ const form = useForm({
     requester_longitude: null as number | null,
     photo: null as File | null,
     camera_available: false,
-}).withPrecognition(store(props.site.uuid));
+}).withPrecognition(store(props.site));
 
 const capturingPhoto = ref(false);
 const locationStatus = ref('');
@@ -65,8 +70,20 @@ function submit(): void {
     }
 
     form.submit({
-        onSuccess: () => {
+        onSuccess: (page) => {
             ++locationAttempt;
+            const collection = page.props.collection as {
+                uuid: string;
+                forget_saved_names: boolean;
+            };
+            rememberCollectionNames(props.site.uuid, {
+                requestUuid: collection.uuid,
+                adultName: form.requester_name_text,
+                childName: form.requested_child_text,
+            });
+            if (collection.forget_saved_names) {
+                forgetCollectionNames(props.site.uuid, collection.uuid);
+            }
         },
     });
 }
@@ -76,7 +93,15 @@ function updatePhoto(photo: File | null): void {
     form.clearErrors('photo');
 }
 
-onMounted(requestLocation);
+onMounted(() => {
+    const savedNames = readCollectionNames(props.site.uuid);
+    if (savedNames) {
+        form.requester_name_text = savedNames.adultName;
+        form.requested_child_text = savedNames.childName;
+    }
+    requestLocation();
+    void import('./Status.vue');
+});
 onBeforeUnmount(() => {
     ++locationAttempt;
 });

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ModalLink } from '@inertiaui/modal-vue';
 import { Clock } from '@lucide/vue';
+import StaffPhoto from '@/components/StaffPhoto.vue';
 import { useStaffCollectionRoutes } from '@/composables/useStaffCollectionRoutes';
 import type { BoardRequest } from '@/types/collections';
 
@@ -27,17 +28,29 @@ const { show } = useStaffCollectionRoutes(props.siteSlug);
                 : 'border-transparent'
         "
     >
-        <div>
-            <p class="mb-1 text-sm text-muted-foreground">Collecting adult</p>
-            <h2 class="text-2xl font-semibold">
-                {{ request.adult_name }}
-            </h2>
-            <p
-                class="mt-2 flex items-center gap-2 text-sm text-muted-foreground"
-            >
-                <Clock class="size-4" />
-                {{ waitingSince }}
-            </p>
+        <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0">
+                <p class="mb-1 text-sm text-muted-foreground">
+                    Collecting adult
+                </p>
+                <h2 class="text-2xl font-semibold">
+                    {{ request.adult_name }}
+                </h2>
+                <p
+                    class="mt-2 flex items-center gap-2 text-sm text-muted-foreground"
+                >
+                    <Clock class="size-4" />
+                    {{ waitingSince }}
+                </p>
+            </div>
+            <StaffPhoto
+                :src="request.adult_photo"
+                :pending="request.adult_photo_pending"
+                :alt="`Stored photo of ${request.adult_name}`"
+                compact
+                cover
+                class="size-20 rounded-full"
+            />
         </div>
         <p
             v-if="request.previous_day && !history"

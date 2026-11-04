@@ -8,13 +8,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import InputError from '@/components/InputError.vue';
-import { onMounted, onBeforeUnmount, ref } from 'vue';
+import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
+import { forgetCollectionNames } from '@/lib/collectionNames';
 
 const props = defineProps<{
     collection: {
         uuid: string;
         adult_name: string;
-        site: { name: string; uuid: string };
+        forget_saved_names: boolean;
+        site: { name: string; uuid: string; slug: string };
         children: {
             uuid: string;
             name: string;
@@ -29,6 +31,15 @@ const props = defineProps<{
 const form = useForm({ requested_child_text: '' });
 const adding = ref(false);
 const connected = ref(true);
+watch(
+    () => props.collection,
+    (collection) => {
+        if (collection.forget_saved_names) {
+            forgetCollectionNames(collection.site.uuid, collection.uuid);
+        }
+    },
+    { immediate: true },
+);
 const refreshOptions = {
     only: ['collection'],
     onSuccess: () => {
@@ -46,7 +57,20 @@ function offline(): void {
     connected.value = false;
 }
 useCollectionChannel(`collection.${props.collection.uuid}`, refresh);
-usePoll(15000, refreshOptions);
+const { start, stop } = usePoll(2000, refreshOptions, {
+    autoStart: !props.collection.finished,
+    mode: 'rest',
+});
+watch(
+    () => props.collection.finished,
+    (finished) => {
+        if (finished) {
+            stop();
+        } else {
+            start();
+        }
+    },
+);
 onMounted(() => {
     connected.value = navigator.onLine;
     window.addEventListener('offline', offline);
@@ -161,7 +185,7 @@ onBeforeUnmount(() => {
         </p>
         <Link
             v-if="collection.finished"
-            :href="create(collection.site.uuid)"
+            :href="create(collection.site)"
             class="text-center underline underline-offset-4"
             >Start a new request</Link
         >

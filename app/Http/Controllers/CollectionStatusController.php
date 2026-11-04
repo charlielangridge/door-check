@@ -24,7 +24,9 @@ class CollectionStatusController extends Controller
             'collection' => [
                 'uuid' => $collectionRequest->uuid,
                 'adult_name' => $collectionRequest->requester_name_text,
-                'site' => $collectionRequest->site->only(['name', 'uuid']),
+                'forget_saved_names' => $collectionRequest->adult_match_status === CollectionRequestStatus::NoMatchFound
+                    || $collectionRequest->child_match_status === CollectionRequestStatus::NoMatchFound,
+                'site' => $collectionRequest->site->only(['name', 'uuid', 'slug']),
                 'children' => $collectionRequest->groupEntries()->orderBy('id')->get()->map(fn (CollectionRequest $entry): array => [
                     'uuid' => $entry->uuid,
                     'name' => $entry->requested_child_text,

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Check, Search, UserRound } from '@lucide/vue';
+import { Check, Search } from '@lucide/vue';
+import StaffPhoto from '@/components/StaffPhoto.vue';
 import { onBeforeUnmount, ref, watch } from 'vue';
 import { useStaffCollectionRoutes } from '@/composables/useStaffCollectionRoutes';
 import { collectionHttp } from '@/lib/collectionHttp';
@@ -102,18 +103,13 @@ onBeforeUnmount(() => {
                     v-if="modelValue?.id === personOption.id"
                     class="absolute top-2 right-2 size-6 rounded-full bg-sky-600 p-1 text-white"
                 />
-                <img
-                    v-if="personOption.photo"
+                <StaffPhoto
                     :src="personOption.photo"
                     :alt="personOption.name"
-                    class="size-24 rounded-xl object-cover"
+                    compact
+                    cover
+                    class="size-24 rounded-xl"
                 />
-                <div
-                    v-else
-                    class="flex size-24 items-center justify-center rounded-xl bg-muted text-muted-foreground"
-                >
-                    <UserRound class="size-12" />
-                </div>
                 <span class="text-base font-semibold">{{
                     personOption.name
                 }}</span>

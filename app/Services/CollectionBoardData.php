@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\ChildCollectionState;
 use App\CollectionRequestMatchPerson;
+use App\CollectionRequestStatus;
 use App\Models\Adult;
 use App\Models\Audit;
 use App\Models\Child;
@@ -23,7 +24,7 @@ class CollectionBoardData
     {
         $terminal = [ChildCollectionState::Collected->value, ChildCollectionState::Cancelled->value];
         $query = CollectionRequest::query()->where('site_id', $siteId)->whereNull('parent_request_id')
-            ->with(['adult', 'requestedChild', 'additionalChildren.requestedChild']);
+            ->with(['site', 'adult.media', 'requestedChild', 'additionalChildren.requestedChild']);
 
         if ($history) {
             $start = now()->timezone(config('staff-collections.timezone'))->startOfDay()->toImmutable();
@@ -43,6 +44,8 @@ class CollectionBoardData
             return [
                 'uuid' => $root->uuid,
                 'adult_name' => $root->adult_id !== null ? $root->adult->name : $root->requester_name_text,
+                'adult_photo' => $root->adult !== null ? $this->person($root->adult, $root->site)['photo'] : null,
+                'adult_photo_pending' => $root->adult_id === null && in_array($root->adult_match_status, [CollectionRequestStatus::Pending, CollectionRequestStatus::Processing], true),
                 'requested_at' => $root->requested_at->toIso8601String(),
                 'previous_day' => $root->requested_at->timezone(config('staff-collections.timezone'))->toDateString() !== now()->timezone(config('staff-collections.timezone'))->toDateString(),
                 'children' => $entries->map(fn (CollectionRequest $entry): array => [
@@ -178,6 +181,6 @@ class CollectionBoardData
 
     private function photo(?Media $media, Site $site): ?string
     {
-        return $media ? route('staff.media.show', ['site' => $site->uuid, 'media' => $media->getKey()]) : null;
+        return $media ? route('staff.media.show', ['site' => $site->slug, 'media' => $media->getKey()]) : null;
     }
 }

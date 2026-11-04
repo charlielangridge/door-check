@@ -1,5 +1,7 @@
 <?php
 
+use App\ChildCollectionState;
+use App\CollectionRequestStatus;
 use App\Jobs\IngestCollectionRequestJob;
 use App\Models\CollectionRequest;
 use App\Models\Site;
@@ -16,7 +18,68 @@ test('guests can open the collection form for a site', function (): void {
         ->assertInertia(fn (Assert $page) => $page
             ->component('CollectionRequest/Create')
             ->where('site.name', $site->name)
+            ->where('site.slug', $site->slug)
             ->where('site.uuid', $site->uuid));
+});
+
+test('the collection form provides a site slug that can be used to submit a request', function (): void {
+    Queue::fake([IngestCollectionRequestJob::class]);
+    $site = Site::factory()->create();
+
+    $page = $this->get(route('collection-request.create', $site))->assertOk();
+
+    $response = $this->post(route('collection-request.store', ['site' => $page->inertiaProps('site.slug')]), [
+        'requester_name_text' => 'Jane Smith',
+        'requested_child_text' => 'Alex Smith',
+    ])->assertRedirect();
+
+    $collectionRequest = CollectionRequest::sole();
+    $response->assertRedirectToRoute('collection-status.show', $collectionRequest);
+    expect($collectionRequest->site_id)->toBe($site->id);
+    Queue::assertPushed(IngestCollectionRequestJob::class, 1);
+});
+
+test('submission opens the status page before queued matching runs and subsequent visits show progress', function (): void {
+    config(['queue.default' => 'database']);
+    $site = Site::factory()->create();
+
+    $response = $this->post(route('collection-request.store', $site), [
+        'requester_name_text' => 'Jane Smith',
+        'requested_child_text' => 'Alex Smith',
+    ]);
+
+    $collectionRequest = CollectionRequest::sole();
+    $response->assertRedirectToRoute('collection-status.show', $collectionRequest)
+        ->assertCookie('collection_browser');
+    expect($collectionRequest->status)->toBe(CollectionRequestStatus::Pending);
+    expect($collectionRequest->adult_match_status)->toBe(CollectionRequestStatus::Pending);
+    expect($collectionRequest->child_match_status)->toBe(CollectionRequestStatus::Pending);
+    $this->assertDatabaseCount('jobs', 2);
+
+    $this->withCookie('collection_browser', $response->getCookie('collection_browser')->getValue())
+        ->get(route('collection-status.show', $collectionRequest))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('CollectionRequest/Status')
+            ->where('collection.site.slug', $site->slug)
+            ->where('collection.children.0.label', 'Request received')
+            ->where('collection.finished', false));
+
+    $collectionRequest->forceFill(['collection_state' => ChildCollectionState::Preparing])->save();
+
+    $this->get(route('collection-status.show', $collectionRequest))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('collection.children.0.label', 'Preparing child')
+            ->where('collection.finished', false));
+
+    $collectionRequest->forceFill(['collection_state' => ChildCollectionState::Collected])->save();
+
+    $this->get(route('collection-status.show', $collectionRequest))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('collection.children.0.label', 'Child collected')
+            ->where('collection.finished', true));
 });
 
 test('guests can submit without evidence and the URL determines the site', function (): void {

@@ -1,6 +1,7 @@
 <?php
 
 use App\ChildCollectionState;
+use App\CollectionRequestStatus;
 use App\Jobs\IngestCollectionRequestJob;
 use App\Models\Adult;
 use App\Models\Child;
@@ -8,6 +9,29 @@ use App\Models\CollectionRequest;
 use App\Models\Site;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
+
+test('saved names are forgotten only when an adult or child has no match', function (CollectionRequestStatus $adultStatus, CollectionRequestStatus $childStatus, bool $forget): void {
+    $site = Site::factory()->create();
+    $request = CollectionRequest::factory()->for($site)->createQuietly([
+        'browser_key_hash' => hash('sha256', str_repeat('a', 64)),
+        'adult_match_status' => $adultStatus,
+        'child_match_status' => $childStatus,
+    ]);
+
+    $this->withCookie('collection_browser', str_repeat('a', 64))
+        ->get(route('collection-status.show', $request))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('collection.forget_saved_names', $forget));
+})->with([
+    'adult unknown' => [CollectionRequestStatus::NoMatchFound, CollectionRequestStatus::Matched, true],
+    'child unknown' => [CollectionRequestStatus::Matched, CollectionRequestStatus::NoMatchFound, true],
+    'both unknown' => [CollectionRequestStatus::NoMatchFound, CollectionRequestStatus::NoMatchFound, true],
+    'still matching' => [CollectionRequestStatus::Pending, CollectionRequestStatus::Processing, false],
+    'matched' => [CollectionRequestStatus::Matched, CollectionRequestStatus::Matched, false],
+    'staff review required' => [CollectionRequestStatus::NeedsApproval, CollectionRequestStatus::NeedsApproval, false],
+    'provider failure' => [CollectionRequestStatus::MatchingFailed, CollectionRequestStatus::MatchingFailed, false],
+]);
 
 test('submission redirects the adult to their private status screen', function (): void {
     Queue::fake([IngestCollectionRequestJob::class]);

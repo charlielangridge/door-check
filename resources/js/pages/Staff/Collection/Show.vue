@@ -8,7 +8,6 @@ import {
     LoaderCircle,
     LockKeyhole,
     RefreshCw,
-    UserRound,
     X,
 } from '@lucide/vue';
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
@@ -17,6 +16,8 @@ import { create as login } from '@/wayfinder/Laravel/Fortify/Http/Controllers/Au
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import PersonMatchPicker from '@/components/PersonMatchPicker.vue';
+import StaffPhoto from '@/components/StaffPhoto.vue';
+import type { StaffPhotoState } from '@/composables/useStaffPhoto';
 import { collectionHttp, CollectionHttpError } from '@/lib/collectionHttp';
 import { useCollectionChannel } from '@/composables/useCollectionChannel';
 import type {
@@ -65,6 +66,7 @@ const preview = ref<{
     duplicate: boolean;
 } | null>(null);
 const photoFailures = ref<string[]>([]);
+const loadingPhotos = ref<string[]>([]);
 const timeline = ref(record.value.timeline);
 const timelineBusy = ref(false);
 const draft = reactive({
@@ -105,6 +107,7 @@ const canReview = computed(
         !checking.value &&
         !stale.value &&
         !busy.value &&
+        !loadingPhotos.value.length &&
         (preview.value.relationship ||
             draft.relationship_override_reason.trim()) &&
         (!changedMatch.value || draft.match_change_reason.trim()) &&
@@ -123,7 +126,6 @@ function resetDraft(): void {
         Reflect.set(draft, key, '');
     });
     cancelling.value = false;
-    photoFailures.value = [];
     fieldErrors.value = {};
     preview.value = null;
     void refreshChecks();
@@ -324,9 +326,14 @@ async function earlierActivity(): Promise<void> {
     }
 }
 
-function photoFailed(kind: string): void {
-    if (!photoFailures.value.includes(kind))
-        photoFailures.value = [...photoFailures.value, kind];
+function photoState(kind: string, state: StaffPhotoState): void {
+    photoFailures.value = photoFailures.value.filter((value) => value !== kind);
+    loadingPhotos.value = loadingPhotos.value.filter((value) => value !== kind);
+    if (state === 'loading') {
+        loadingPhotos.value.push(kind);
+    } else if (state === 'unavailable') {
+        photoFailures.value.push(kind);
+    }
 }
 </script>
 
@@ -454,69 +461,46 @@ function photoFailed(kind: string): void {
                         <figcaption class="mb-2 text-sm font-medium">
                             Adult · stored
                         </figcaption>
-                        <img
-                            v-if="
-                                adult?.photo &&
-                                !photoFailures.includes('stored_adult')
+                        <StaffPhoto
+                            :src="adult?.photo"
+                            :pending="
+                                !adult &&
+                                ['pending', 'processing'].includes(
+                                    record.adult_match_status,
+                                )
                             "
-                            :src="adult.photo"
-                            :alt="`Stored photo of ${adult.name}`"
-                            class="mx-auto h-32 w-full rounded-lg object-contain sm:h-36"
-                            @error="photoFailed('stored_adult')"
+                            :alt="`Stored photo of ${adult?.name ?? record.submitted_adult_name}`"
+                            class="mx-auto h-32 w-full rounded-lg sm:h-36"
+                            @state="photoState('stored_adult', $event)"
                         />
-                        <div
-                            v-else
-                            class="flex h-32 flex-col items-center justify-center gap-2 text-sm text-muted-foreground sm:h-36"
-                        >
-                            <UserRound class="size-8" /><span
-                                >Photo unavailable</span
-                            >
-                        </div>
                     </figure>
                     <figure class="rounded-xl border bg-muted/30 p-3">
                         <figcaption class="mb-2 text-sm font-medium">
                             Adult · now
                         </figcaption>
-                        <img
-                            v-if="
-                                record.requester_photo &&
-                                !photoFailures.includes('current_adult')
-                            "
+                        <StaffPhoto
                             :src="record.requester_photo"
                             alt="Adult photo submitted with this request"
-                            class="mx-auto h-32 w-full rounded-lg object-contain sm:h-36"
-                            @error="photoFailed('current_adult')"
+                            class="mx-auto h-32 w-full rounded-lg sm:h-36"
+                            @state="photoState('current_adult', $event)"
                         />
-                        <div
-                            v-else
-                            class="flex h-32 flex-col items-center justify-center gap-2 text-sm text-muted-foreground sm:h-36"
-                        >
-                            <UserRound class="size-8" /><span
-                                >Photo unavailable</span
-                            >
-                        </div>
                     </figure>
                     <figure class="rounded-xl border bg-muted/30 p-3">
                         <figcaption class="mb-2 text-sm font-medium">
                             Child
                         </figcaption>
-                        <img
-                            v-if="
-                                child?.photo && !photoFailures.includes('child')
+                        <StaffPhoto
+                            :src="child?.photo"
+                            :pending="
+                                !child &&
+                                ['pending', 'processing'].includes(
+                                    entry.match_status,
+                                )
                             "
-                            :src="child.photo"
-                            :alt="`Photo of ${child.name}`"
-                            class="mx-auto h-32 w-full rounded-lg object-contain sm:h-36"
-                            @error="photoFailed('child')"
+                            :alt="`Photo of ${child?.name ?? entry.submitted_name}`"
+                            class="mx-auto h-32 w-full rounded-lg sm:h-36"
+                            @state="photoState('child', $event)"
                         />
-                        <div
-                            v-else
-                            class="flex h-32 flex-col items-center justify-center gap-2 text-sm text-muted-foreground sm:h-36"
-                        >
-                            <UserRound class="size-8" /><span
-                                >Photo unavailable</span
-                            >
-                        </div>
                     </figure>
                 </div>
                 <section class="space-y-3">
