@@ -30,6 +30,8 @@ class SitesTable
                 Action::make('staffDashboard')->label('Staff dashboard')->icon('heroicon-o-rectangle-group')
                     ->visible(fn (Site $record): bool => auth()->user()->can('processCollections', $record))
                     ->url(fn (Site $record): string => route('staff.board', $record->slug))->openUrlInNewTab(),
+                Action::make('collectionRequest')->label('Collection request form')->icon('heroicon-o-document-text')
+                    ->url(fn (Site $record): string => route('collection-request.create', $record->slug))->openUrlInNewTab(),
                 EditAction::make(),
             ])
             ->toolbarActions([

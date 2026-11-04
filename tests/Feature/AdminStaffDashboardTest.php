@@ -18,13 +18,15 @@ use Inertia\Testing\AssertableInertia as Assert;
 use Livewire\Livewire;
 use Spatie\MediaLibrary\Conversions\Jobs\PerformConversionsJob;
 
-test('each site row links to that venues staff dashboard in a new tab', function (): void {
+test('each site row links to that venues staff dashboard and collection request form in new tabs', function (): void {
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     $admin = User::factory()->administrator()->globalCollector()->create();
     $site = Site::factory()->create();
     $this->actingAs($admin)->withSession(['staff_signed_in_at' => now()->timestamp]);
 
-    Livewire::test(ListSites::class)->assertActionExists(TestAction::make('staffDashboard')->table($site), fn (Action $action): bool => $action->getUrl() === route('staff.board', $site->uuid) && $action->shouldOpenUrlInNewTab());
+    Livewire::test(ListSites::class)
+        ->assertActionExists(TestAction::make('staffDashboard')->table($site), fn (Action $action): bool => $action->getUrl() === route('staff.board', $site->slug) && $action->shouldOpenUrlInNewTab())
+        ->assertActionExists(TestAction::make('collectionRequest')->table($site), fn (Action $action): bool => $action->getUrl() === route('collection-request.create', $site->slug) && $action->shouldOpenUrlInNewTab());
 });
 
 test('an admin opens the selected venue without changing their own staff assignment', function (): void {

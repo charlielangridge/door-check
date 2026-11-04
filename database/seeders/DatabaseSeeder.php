@@ -26,6 +26,14 @@ class DatabaseSeeder extends Seeder
             'email_verified_at' => now(),
         ])->assignRole('super-admin');
 
+
+        User::create([
+            'name' => 'MJ Day',
+            'email' => 'mj@fatpoppadaddys.com',
+            'password' => bcrypt('password'),
+            'email_verified_at' => now(),
+        ])->assignRole('super-admin');
+
         $this->call(DemoSeeder::class);
 
     }

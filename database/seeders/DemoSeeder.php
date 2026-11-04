@@ -25,6 +25,7 @@ class DemoSeeder extends Seeder
         ]);
 
         $demoSite->staffUsers()->attach(User::first());
+        $demoSite->staffUsers()->attach(User::skip(1)->first());
         $demoSite->addMedia(base_path('source/sample-logo.png'))
             ->preservingOriginal()
             ->toMediaCollection('logo');
