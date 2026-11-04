@@ -59,7 +59,7 @@ test('a kiosk submission saves evidence and returns to its QR screen with a requ
 
     $this->post(route('collection-kiosk.store', [...$displayArgs, 'entry' => $entry->uuid]), [
         'requester_name_text' => 'Jane Smith', 'requested_child_text' => 'Alex Smith',
-        'requester_latitude' => 51.50735123, 'requester_longitude' => -0.12775812,
+        'requester_latitude' => 'obsolete client location', 'requester_longitude' => -181,
         'camera_available' => true, 'photo' => UploadedFile::fake()->image('requester.jpg', 500, 500),
         'kiosk' => false,
     ])->assertRedirectToRoute('collection-display.resume', $displayArgs)
@@ -70,8 +70,8 @@ test('a kiosk submission saves evidence and returns to its QR screen with a requ
     expect($collection->site_id)->toBe($site->id);
     expect($collection->requester_name_text)->toBe('Jane Smith');
     expect($collection->requested_child_text)->toBe('Alex Smith');
-    expect($collection->requester_latitude)->toBe('51.50735123');
-    expect($collection->requester_longitude)->toBe('-0.12775812');
+    expect($collection->requester_latitude)->toBeNull();
+    expect($collection->requester_longitude)->toBeNull();
     expect($collection->browser_key_hash)->toBeNull();
     $photo = $collection->getFirstMedia('requester_photo');
     expect($photo)->not->toBeNull();

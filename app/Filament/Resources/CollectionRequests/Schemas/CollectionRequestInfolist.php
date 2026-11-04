@@ -43,8 +43,6 @@ class CollectionRequestInfolist
                         TextEntry::make('requested_at')->dateTime(),
                         TextEntry::make('requester_name_text')->label('Submitted requester name'),
                         TextEntry::make('requested_child_text')->label('Submitted child name'),
-                        TextEntry::make('requester_latitude')->placeholder('Not provided'),
-                        TextEntry::make('requester_longitude')->placeholder('Not provided'),
                         TextEntry::make('matching_threshold')->label('Automatic matching threshold')->suffix('%')->placeholder('Not yet set'),
                         TextEntry::make('current_relationship')
                             ->label('Current adult–child relationship')

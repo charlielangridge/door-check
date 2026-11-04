@@ -25,8 +25,6 @@ class CollectionRequestSubmission
                 ...$request->safe()->only([
                     'requester_name_text',
                     'requested_child_text',
-                    'requester_latitude',
-                    'requester_longitude',
                 ]),
                 'requested_at' => now(),
             ]);

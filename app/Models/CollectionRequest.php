@@ -29,8 +29,6 @@ use Spatie\MediaLibrary\InteractsWithMedia;
     'requested_at',
     'requester_name_text',
     'requested_child_text',
-    'requester_latitude',
-    'requester_longitude',
     'adult_id',
     'requested_child_id',
 ])]
@@ -81,11 +79,9 @@ class CollectionRequest extends Model implements Auditable, HasMedia
         'adult_site_membership_changed' => 'boolean',
         'child_site_membership_changed' => 'boolean',
         'requested_at' => 'datetime',
-        'requester_latitude' => 'decimal:8',
-        'requester_longitude' => 'decimal:8',
     ];
 
-    protected $hidden = ['browser_key_hash'];
+    protected $hidden = ['browser_key_hash', 'requester_latitude', 'requester_longitude'];
 
     /** @return BelongsTo<self, $this> */
     public function parentRequest(): BelongsTo

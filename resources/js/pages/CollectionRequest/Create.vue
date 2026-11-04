@@ -38,8 +38,6 @@ const endpoint = props.kiosk
 const form = useForm({
     requester_name_text: '',
     requested_child_text: '',
-    requester_latitude: null as number | null,
-    requester_longitude: null as number | null,
     photo: null as File | null,
     camera_available: false,
 }).withPrecognition(endpoint);
@@ -64,48 +62,9 @@ watch(
 );
 
 const capturingPhoto = ref(false);
-const locationStatus = ref('');
-const locating = ref(false);
-let locationAttempt = 0;
-
-function requestLocation(): void {
-    const attempt = ++locationAttempt;
-    locating.value = true;
-
-    if (!navigator.geolocation) {
-        locating.value = false;
-        locationStatus.value =
-            'Location unavailable. You can still submit your request.';
-        return;
-    }
-
-    locationStatus.value = 'Recording your location…';
-    navigator.geolocation.getCurrentPosition(
-        ({ coords }) => {
-            if (attempt !== locationAttempt) {
-                return;
-            }
-
-            form.requester_latitude = coords.latitude;
-            form.requester_longitude = coords.longitude;
-            locationStatus.value = 'Location recorded.';
-            locating.value = false;
-        },
-        () => {
-            if (attempt === locationAttempt) {
-                locating.value = false;
-                locationStatus.value =
-                    'Location unavailable. You can still submit your request.';
-            }
-        },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
-    );
-}
-
 function submit(): void {
     if (
         expired.value ||
-        (props.kiosk && locating.value) ||
         form.processing ||
         capturingPhoto.value ||
         (form.camera_available && !form.photo)
@@ -129,7 +88,6 @@ function submit(): void {
             if (!collection) return;
             submitted = true;
             forgetCollectionDraft(props.site.uuid);
-            ++locationAttempt;
             rememberCollectionNames(props.site.uuid, {
                 requestUuid: collection.uuid,
                 adultName: form.requester_name_text,
@@ -160,12 +118,10 @@ onMounted(() => {
         form.requester_name_text = savedNames.adultName;
         form.requested_child_text = savedNames.childName;
     }
-    requestLocation();
     void import('./Status.vue');
 });
 onBeforeUnmount(() => {
     clearInterval(expiryTimer);
-    ++locationAttempt;
     if (props.kiosk) form.reset();
 });
 </script>
@@ -276,22 +232,10 @@ onBeforeUnmount(() => {
                 </p>
             </div>
 
-            <div class="grid gap-2">
-                <p
-                    role="status"
-                    class="text-center text-sm text-muted-foreground"
-                >
-                    {{ locationStatus }}
-                </p>
-                <InputError :message="form.errors.requester_latitude" />
-                <InputError :message="form.errors.requester_longitude" />
-            </div>
-
             <Button
                 type="submit"
                 :disabled="
                     form.processing ||
-                    (kiosk && locating) ||
                     capturingPhoto ||
                     (form.camera_available && !form.photo)
                 "

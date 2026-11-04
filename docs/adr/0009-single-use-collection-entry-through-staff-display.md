@@ -16,7 +16,7 @@ The existing tokenless `collection-request/{site:slug}` address shows "Please sc
 
 When the display detects a lost connection, it hides the QR code and shows "Connection lost. Please speak to a member of staff". After reconnecting, it automatically obtains and shows a fresh QR code rather than reusing the previously displayed one.
 
-Warn the adult two minutes before the 15-minute form submission window expires. After expiry, a fresh scan in the same browser for the same site preserves the entered names, but requires a fresh photo and location attempt under the existing collection evidence rules. Preserving names does not extend or bypass the expired entry's submission window.
+Warn the adult two minutes before the 15-minute form submission window expires. After expiry, a fresh scan in the same browser for the same site preserves the entered names, but requires a fresh photo attempt under the existing collection evidence rules. Preserving names does not extend or bypass the expired entry's submission window.
 
 The collection entry display fills the available display area and adapts to portrait and landscape. Show the site's logo and name above a large QR code, with "Scan to collect your child" and "Open your phone’s camera and scan the QR code". When no logo is available, retain the site name.
 

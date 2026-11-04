@@ -89,7 +89,7 @@ A child whose attendance at a particular site has paused or ended. Their record 
 An alternative full name recorded by an administrator for a particular adult or child to help identify that person from a collection request or staff search. A person can have multiple such names while retaining their primary name.
 
 **Collection request evidence**:
-A requester photo and optional device location accompanying a collection request. The photo is required when the form has a working camera preview; a request can be submitted without it when camera access is unavailable, denied, or fails.
+A requester photo accompanying a collection request. The photo is required when the form has a working camera preview; a request can be submitted without it when camera access is unavailable, denied, or fails.
 
 **Requester photo**:
 A photo of the adult seeking to collect the child, supplied as collection request evidence.

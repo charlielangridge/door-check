@@ -121,7 +121,7 @@ test('guests can submit without evidence and the URL determines the site', funct
     Queue::assertPushed(IngestCollectionRequestJob::class, 1);
 });
 
-test('a requester photo and precise GPS coordinates are attached to the request', function (): void {
+test('a requester photo is attached to the request', function (): void {
     Queue::fake([IngestCollectionRequestJob::class]);
     Storage::fake('local');
     $site = Site::factory()->create();
@@ -130,16 +130,12 @@ test('a requester photo and precise GPS coordinates are attached to the request'
     $this->post(route('collection-request.store', $entryParameters), [
         'requester_name_text' => 'Jane Smith',
         'requested_child_text' => 'Alex Smith',
-        'requester_latitude' => 51.50735123,
-        'requester_longitude' => -0.12775812,
         'photo' => UploadedFile::fake()->image('requester.jpg', 500, 500),
         'camera_available' => true,
     ])->assertRedirectToRoute('collection-status.show', CollectionRequest::sole())
         ->assertSessionHasNoErrors();
 
     $request = CollectionRequest::sole();
-    expect($request->requester_latitude)->toBe('51.50735123');
-    expect($request->requester_longitude)->toBe('-0.12775812');
     $photo = $request->getFirstMedia('requester_photo');
     expect($photo)->not->toBeNull();
     expect($photo->disk)->toBe('local');
@@ -176,14 +172,25 @@ test('invalid collection inputs return useful errors without saving', function (
         ['requested_child_text' => str_repeat('a', 256)],
         ['requested_child_text' => 'The child you are collecting field must not be greater than 255 characters.'],
     ],
-    'invalid coordinates' => [
-        ['requester_latitude' => 91, 'requester_longitude' => -181],
-        ['requester_latitude' => 'The latitude field must be between -90 and 90.', 'requester_longitude' => 'The longitude field must be between -180 and 180.'],
-    ],
-    'incomplete location' => [
-        ['requester_latitude' => 51.5],
-        ['requester_longitude' => 'The longitude field is required when latitude is present.'],
-    ],
+]);
+
+test('obsolete GPS payloads are ignored without validation or storage', function (array $coordinates): void {
+    Queue::fake([IngestCollectionRequestJob::class]);
+    $site = Site::factory()->create();
+    $entryParameters = $this->openCollectionEntry($site);
+
+    $this->post(route('collection-request.store', $entryParameters), [
+        'requester_name_text' => 'Jane Smith',
+        'requested_child_text' => 'Alex Smith',
+        ...$coordinates,
+    ])->assertRedirectToRoute('collection-status.show', CollectionRequest::sole())->assertSessionHasNoErrors();
+
+    $this->assertDatabaseHas('collection_request', ['requester_latitude' => null, 'requester_longitude' => null]);
+    Queue::assertPushed(IngestCollectionRequestJob::class, 1);
+})->with([
+    'valid coordinates' => [['requester_latitude' => 51.50735123, 'requester_longitude' => -0.12775812]],
+    'invalid coordinates' => [['requester_latitude' => 91, 'requester_longitude' => -181]],
+    'incomplete location' => [['requester_latitude' => 51.5]],
 ]);
 
 test('invalid photos are rejected without saving a request', function (Closure $upload): void {
@@ -255,7 +262,7 @@ test('a photo is required when the form reports a working camera', function (boo
     Queue::assertNotPushed(IngestCollectionRequestJob::class);
 })->with(['JSON' => [true], 'multipart form' => ['1']]);
 
-test('GPS can be saved without a photo when the camera is unavailable', function (bool|string $available): void {
+test('requests can be submitted without a photo when the camera is unavailable', function (bool|string $available): void {
     Queue::fake([IngestCollectionRequestJob::class]);
     $site = Site::factory()->create();
     $entryParameters = $this->openCollectionEntry($site);
@@ -264,13 +271,10 @@ test('GPS can be saved without a photo when the camera is unavailable', function
         'requester_name_text' => 'Jane Smith',
         'requested_child_text' => 'Alex Smith',
         'camera_available' => $available,
-        'requester_latitude' => 51.50735123,
-        'requester_longitude' => -0.12775812,
     ])->assertRedirectToRoute('collection-status.show', CollectionRequest::sole())
         ->assertSessionHasNoErrors();
 
     $request = CollectionRequest::sole();
-    expect($request->requester_latitude)->toBe('51.50735123');
     expect($request->getMedia('requester_photo'))->toBeEmpty();
     Queue::assertPushed(IngestCollectionRequestJob::class, 1);
 })->with(['JSON' => [false], 'multipart form' => ['0']]);

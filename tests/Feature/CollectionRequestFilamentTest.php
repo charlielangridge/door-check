@@ -36,12 +36,14 @@ test('the show page displays submitted details matched people and saved JEV chec
         'child_match_candidates' => [['id' => $child->id, 'name' => 'Alex candidate snapshot', 'similarity' => 0.85, 'confidence' => 99]],
     ]);
 
+    $request->forceFill(['requester_latitude' => 51.50735123, 'requester_longitude' => -0.12775812])->save();
+
     Livewire::test(ViewCollectionRequest::class, ['record' => $request->uuid])
         ->assertOk()
         ->assertSee($request->requester_name_text)
         ->assertSee($request->requested_child_text)
-        ->assertSee($request->requester_latitude)
-        ->assertSee($request->requester_longitude)
+        ->assertDontSee('51.50735123')
+        ->assertDontSee('-0.12775812')
         ->assertSee($request->uuid)
         ->assertSee('Needs approval')
         ->assertSee('Jane Example')

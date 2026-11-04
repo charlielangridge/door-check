@@ -25,8 +25,6 @@ class CollectionRequestFactory extends Factory
             'requested_at' => $this->faker->dateTime(),
             'requester_name_text' => $this->faker->name(),
             'requested_child_text' => $this->faker->name(),
-            'requester_latitude' => $this->faker->latitude(),
-            'requester_longitude' => $this->faker->longitude(),
 
         ];
     }

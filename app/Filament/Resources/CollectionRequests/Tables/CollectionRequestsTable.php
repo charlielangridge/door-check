@@ -33,8 +33,6 @@ class CollectionRequestsTable
                 TextColumn::make('requested_child_text')
                     ->label('Requested Child')
                     ->state(fn (CollectionRequest $record): ?string => $record->requested_child_id !== null ? $record->requestedChild?->name : $record->requested_child_text),
-                TextColumn::make('requester_latitude')->label('Requester Latitude')->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('requester_longitude')->label('Requester Longitude')->toggleable(isToggledHiddenByDefault: true),
 
             ])
             ->filters([
