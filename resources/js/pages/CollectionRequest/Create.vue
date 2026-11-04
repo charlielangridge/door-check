@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { store as kioskStore } from '@/wayfinder/App/Http/Controllers/CollectionKioskController';
+import { resume } from '@/wayfinder/App/Http/Controllers/CollectionEntryDisplayController';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { store } from '@/wayfinder/App/Http/Controllers/CollectionRequestController';
 import InputError from '@/components/InputError.vue';
@@ -16,10 +18,22 @@ import {
     forgetCollectionDraft,
 } from '@/lib/collectionNames';
 
-const props = defineProps<{
-    site: { name: string; uuid: string; slug: string; logo: string | null };
-    entry: { uuid: string; remaining_ms: number };
-}>();
+const props = withDefaults(
+    defineProps<{
+        site: { name: string; uuid: string; slug: string; logo: string | null };
+        entry: { uuid: string; remaining_ms: number };
+        kiosk?: { display: string } | null;
+    }>(),
+    { kiosk: null },
+);
+
+const endpoint = props.kiosk
+    ? kioskStore({
+          site: props.site.slug,
+          display: props.kiosk.display,
+          entry: props.entry.uuid,
+      })
+    : store({ site: props.site.slug, entry: props.entry.uuid });
 
 const form = useForm({
     requester_name_text: '',
@@ -28,7 +42,7 @@ const form = useForm({
     requester_longitude: null as number | null,
     photo: null as File | null,
     camera_available: false,
-}).withPrecognition(store({ site: props.site.slug, entry: props.entry.uuid }));
+}).withPrecognition(endpoint);
 
 const remaining = ref(props.entry.remaining_ms);
 const expired = computed(() => remaining.value <= 0);
@@ -39,7 +53,7 @@ let submitted = false;
 watch(
     () => [form.requester_name_text, form.requested_child_text],
     () => {
-        if (!submitted) {
+        if (!props.kiosk && !submitted) {
             rememberCollectionDraft(
                 props.site.uuid,
                 form.requester_name_text,
@@ -51,12 +65,15 @@ watch(
 
 const capturingPhoto = ref(false);
 const locationStatus = ref('');
+const locating = ref(false);
 let locationAttempt = 0;
 
 function requestLocation(): void {
     const attempt = ++locationAttempt;
+    locating.value = true;
 
     if (!navigator.geolocation) {
+        locating.value = false;
         locationStatus.value =
             'Location unavailable. You can still submit your request.';
         return;
@@ -72,9 +89,11 @@ function requestLocation(): void {
             form.requester_latitude = coords.latitude;
             form.requester_longitude = coords.longitude;
             locationStatus.value = 'Location recorded.';
+            locating.value = false;
         },
         () => {
             if (attempt === locationAttempt) {
+                locating.value = false;
                 locationStatus.value =
                     'Location unavailable. You can still submit your request.';
             }
@@ -86,6 +105,7 @@ function requestLocation(): void {
 function submit(): void {
     if (
         expired.value ||
+        (props.kiosk && locating.value) ||
         form.processing ||
         capturingPhoto.value ||
         (form.camera_available && !form.photo)
@@ -95,6 +115,11 @@ function submit(): void {
 
     form.submit({
         onSuccess: (page) => {
+            if (props.kiosk) {
+                submitted = true;
+                form.reset();
+                return;
+            }
             const collection = page.props.collection as
                 | {
                       uuid: string;
@@ -127,9 +152,10 @@ onMounted(() => {
     expiryTimer = setInterval(() => {
         remaining.value = Math.max(0, deadline - performance.now());
     }, 1000);
-    const savedNames =
-        readCollectionDraft(props.site.uuid) ??
-        readCollectionNames(props.site.uuid);
+    const savedNames = props.kiosk
+        ? null
+        : (readCollectionDraft(props.site.uuid) ??
+          readCollectionNames(props.site.uuid));
     if (savedNames) {
         form.requester_name_text = savedNames.adultName;
         form.requested_child_text = savedNames.childName;
@@ -140,6 +166,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
     clearInterval(expiryTimer);
     ++locationAttempt;
+    if (props.kiosk) form.reset();
 });
 </script>
 
@@ -164,9 +191,15 @@ onBeforeUnmount(() => {
             role="alert"
             class="rounded-lg bg-muted p-4 text-center"
         >
-            Your form has expired. Please scan the QR code on the screen at your
-            site again. Your entered names will be kept when you scan again in
-            this browser.
+            <template v-if="kiosk"
+                >Your form has expired. Please return to the QR screen to start
+                again.</template
+            >
+            <template v-else
+                >Your form has expired. Please scan the QR code on the screen at
+                your site again. Your entered names will be kept when you scan
+                again in this browser.</template
+            >
         </p>
         <p
             v-else-if="remaining <= 120000"
@@ -182,6 +215,7 @@ onBeforeUnmount(() => {
             v-if="!expired"
             class="grid gap-6"
             novalidate
+            :autocomplete="kiosk ? 'off' : undefined"
             @submit.prevent="submit"
         >
             <div class="grid gap-2">
@@ -190,7 +224,7 @@ onBeforeUnmount(() => {
                     id="requester_name_text"
                     v-model="form.requester_name_text"
                     name="requester_name_text"
-                    autocomplete="name"
+                    :autocomplete="kiosk ? 'off' : 'name'"
                     required
                     maxlength="255"
                     :disabled="form.processing"
@@ -257,6 +291,7 @@ onBeforeUnmount(() => {
                 type="submit"
                 :disabled="
                     form.processing ||
+                    (kiosk && locating) ||
                     capturingPhoto ||
                     (form.camera_available && !form.photo)
                 "
@@ -268,5 +303,12 @@ onBeforeUnmount(() => {
                 }}
             </Button>
         </form>
+        <Link
+            v-if="kiosk"
+            :href="resume({ site: site.slug, display: kiosk.display })"
+            class="text-center underline underline-offset-4"
+        >
+            Back to QR screen
+        </Link>
     </main>
 </template>

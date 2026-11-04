@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ChildController;
 use App\Http\Controllers\CollectionEntryDisplayController;
+use App\Http\Controllers\CollectionKioskController;
 use App\Http\Controllers\CollectionRequestController;
 use App\Http\Controllers\CollectionStatusController;
 use App\Http\Controllers\StaffChildRegistrationController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\StaffCollectionController;
 use App\Http\Controllers\StaffMediaController;
 use App\Http\Controllers\StaffPersonController;
 use App\Http\Middleware\EnsureCollectionEntry;
+use App\Http\Middleware\EnsureKioskCollectionEntry;
 use App\Http\Middleware\EnsureStaffSession;
 use Illuminate\Foundation\Http\Middleware\HandlePrecognitiveRequests;
 use Illuminate\Support\Facades\Route;
@@ -56,6 +58,15 @@ Route::post('collection-status/{collectionRequest:uuid}/children', [CollectionSt
 
 Route::post('sites/{site:slug}/collection-displays/{display:uuid}', [CollectionEntryDisplayController::class, 'update'])
     ->middleware(['auth', 'verified', EnsureStaffSession::class])->whereUuid('display')->name('collection-display.update');
+
+Route::middleware(['auth', 'verified', EnsureStaffSession::class])->prefix('sites/{site:slug}/collection-displays/{display:uuid}')->whereUuid('display')->group(function (): void {
+    Route::get('/', [CollectionEntryDisplayController::class, 'resume'])->name('collection-display.resume');
+    Route::post('/collection-request', [CollectionKioskController::class, 'start'])->name('collection-kiosk.start');
+    Route::get('/collection-request/{entry:uuid}', [CollectionKioskController::class, 'create'])
+        ->middleware(EnsureKioskCollectionEntry::class)->whereUuid('entry')->name('collection-kiosk.create');
+    Route::post('/collection-request/{entry:uuid}', [CollectionKioskController::class, 'store'])
+        ->middleware([EnsureKioskCollectionEntry::class, HandlePrecognitiveRequests::class])->whereUuid('entry')->name('collection-kiosk.store');
+});
 
 Route::get('/{site:slug}', [CollectionEntryDisplayController::class, 'show'])
     ->middleware(['auth', 'verified', EnsureStaffSession::class])->name('collection-display.show');

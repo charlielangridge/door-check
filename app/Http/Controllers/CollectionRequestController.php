@@ -7,9 +7,9 @@ use App\Models\CollectionEntry;
 use App\Models\CollectionRequest;
 use App\Models\Site;
 use App\Services\CollectionEntryAccess;
+use App\Services\CollectionRequestSubmission;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -44,40 +44,11 @@ class CollectionRequestController extends Controller
         return $response;
     }
 
-    public function store(CreateCollectionRequestRequest $request, Site $site, CollectionEntry $entry, CollectionEntryAccess $access): RedirectResponse
+    public function store(CreateCollectionRequestRequest $request, Site $site, CollectionEntry $entry, CollectionEntryAccess $access, CollectionRequestSubmission $submission): RedirectResponse
     {
         $browserKey = $access->browserKey($request);
 
-        $collectionRequest = DB::transaction(function () use ($request, $site, $browserKey, $entry, $access): CollectionRequest {
-            $entry = CollectionEntry::query()->whereKey($entry->getKey())->lockForUpdate()->firstOrFail();
-            abort_unless($access->allows($request, $site, $entry), 403);
-            if ($entry->collection_request_id !== null) {
-                return $entry->collectionRequest;
-            }
-
-            $collectionRequest = $site->collectionRequests()->make([
-                ...$request->safe()->only([
-                    'requester_name_text',
-                    'requested_child_text',
-                    'requester_latitude',
-                    'requester_longitude',
-                ]),
-                'requested_at' => now(),
-            ]);
-            $collectionRequest->browser_key_hash = hash('sha256', $browserKey);
-            $collectionRequest->save();
-
-            if ($request->hasFile('photo')) {
-                $collectionRequest->addMediaFromRequest('photo')
-                    ->usingFileName('requester.'.$request->file('photo')->extension())
-                    ->toMediaCollection('requester_photo');
-            }
-
-            $entry->collection_request_id = $collectionRequest->getKey();
-            $entry->save();
-
-            return $collectionRequest;
-        }, 3);
+        $collectionRequest = $submission->submit($request, $site, $entry, $browserKey);
 
         return to_route('collection-status.show', $collectionRequest)
             ->withCookie(cookie('collection_browser', $browserKey, 43200, secure: $request->isSecure(), httpOnly: true, sameSite: 'lax'));

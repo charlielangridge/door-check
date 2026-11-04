@@ -48,7 +48,7 @@ class AuditCollectionActivity
             $this->audit->record('admin_viewed', $request->user(), ['route' => $request->route()?->getName()]);
         }
 
-        $isCollectionEntry = $request->is('collection-request/*') || $request->routeIs('collection-display.*');
+        $isCollectionEntry = $request->is('collection-request/*') || $request->routeIs('collection-display.*', 'collection-kiosk.*');
         if ($request->is('staff', 'staff/*', 'admin/staff/*', 'collection-status/*') || $isCollectionEntry) {
             $response->headers->set('Cache-Control', 'private, no-store');
         }
