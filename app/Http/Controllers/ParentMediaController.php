@@ -85,10 +85,14 @@ class ParentMediaController extends Controller
     {
         abort_unless($registration->site_id === $site->id && $request->user()->can('processCollections', $site), 404);
         $payload = $registration->payload ?? [];
-        $path = $slot === 'child' ? ($payload['photo_path'] ?? null) : collect($payload['adults'] ?? [])->firstWhere('key', $slot)['photo_path'] ?? null;
+        $person = $slot === 'child' ? $payload : collect($payload['adults'] ?? [])->firstWhere('key', $slot);
+        $path = $person['photo_path'] ?? null;
         abort_unless($path, 404);
 
-        return Storage::disk('local')->response($path, null, ['X-Content-Type-Options' => 'nosniff']);
+        $disk = Storage::disk($person['photo_disk'] ?? 'local');
+        abort_unless($disk->exists($path), 404);
+
+        return $disk->response($path, null, ['X-Content-Type-Options' => 'nosniff']);
     }
 
     public function updatePhoto(Request $request, Site $site, ParentUpdate $update): StreamedResponse

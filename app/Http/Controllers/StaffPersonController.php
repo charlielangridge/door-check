@@ -38,7 +38,7 @@ class StaffPersonController extends Controller
         }
         if ($request->hasFile('new_photo')) {
             $photo = $request->file('new_photo');
-            $person->addMedia($photo)->usingFileName(Str::uuid().'.'.$photo->guessExtension())->toMediaCollection('logo', 'local');
+            $person->addMedia($photo)->usingFileName(Str::uuid().'.'.$photo->guessExtension())->toMediaCollection('logo');
         }
     }
 }

@@ -43,9 +43,9 @@ class StaffParentRegistrationController extends Controller
                 ...$registration->only(['id', 'uuid', 'child_name', 'email', 'status', 'revision', 'failed_attempts', 'expires_at', 'correction_message']),
                 'child_date_of_birth' => $registration->child_date_of_birth->toDateString(),
                 'payload' => $registration->payload ? [
-                    ...Arr::except($registration->payload, ['photo_path']),
+                    ...Arr::except($registration->payload, ['photo_path', 'photo_disk']),
                     'has_photo' => filled($registration->payload['photo_path'] ?? null),
-                    'adults' => array_map(fn (array $adult): array => [...Arr::except($adult, ['photo_path']), 'has_photo' => filled($adult['photo_path'] ?? null)], $registration->payload['adults'] ?? []),
+                    'adults' => array_map(fn (array $adult): array => [...Arr::except($adult, ['photo_path', 'photo_disk']), 'has_photo' => filled($adult['photo_path'] ?? null)], $registration->payload['adults'] ?? []),
                 ] : null,
                 'duplicates' => $registration->status === 'submitted' ? $workflow->duplicates($registration) : null,
                 'outstanding' => $registration->status === 'submitted' ? $documents->outstanding($registration) : [],

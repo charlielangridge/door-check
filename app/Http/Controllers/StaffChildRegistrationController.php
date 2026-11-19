@@ -80,7 +80,7 @@ class StaffChildRegistrationController extends Controller
         $person->fill(['name' => $data['name'], 'date_of_birth' => $data['date_of_birth'], 'also_known_as' => $data['also_known_as'] ?? []])->save();
         if (($data['new_photo'] ?? null) instanceof UploadedFile) {
             $photo = $data['new_photo'];
-            $media[] = $person->addMedia($photo)->usingFileName(Str::uuid().'.'.$photo->guessExtension())->toMediaCollection('logo', 'local');
+            $media[] = $person->addMedia($photo)->usingFileName(Str::uuid().'.'.$photo->guessExtension())->toMediaCollection('logo');
         }
 
         return $person;

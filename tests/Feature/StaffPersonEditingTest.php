@@ -36,7 +36,9 @@ test('assigned staff can edit children and related adults including their relati
 });
 
 test('staff can add a photo without deleting previous photos', function (string $personType): void {
+    config(['media-library.disk_name' => 's3']);
     Storage::fake('local');
+    Storage::fake('s3');
     Queue::fake([PerformConversionsJob::class]);
     $person = $this->{$personType};
     $oldPhoto = $person->addMedia(UploadedFile::fake()->image('old.jpg'))->toMediaCollection('photo', 'local');
@@ -47,8 +49,10 @@ test('staff can add a photo without deleting previous photos', function (string 
     $photos = $person->fresh()->getMedia('*');
     expect($photos)->toHaveCount(3);
     expect($photos->pluck('id')->all())->toContain($oldPhoto->id, $oldLegacy->id);
-    Storage::disk('local')->assertExists($photos->sortBy('id')->last()->getPathRelativeToRoot());
-    $this->get(route('staff.media.show', ['site' => $this->site->slug, 'media' => $photos->sortBy('id')->last()]))->assertOk();
+    $replacement = $photos->sortBy('id')->last();
+    expect($replacement->disk)->toBe('s3');
+    Storage::disk('s3')->assertExists($replacement->getPathRelativeToRoot());
+    $this->get(route('staff.media.show', ['site' => $this->site->slug, 'media' => $replacement]))->assertOk();
 })->with(['child', 'adult']);
 
 test('empty aliases clear old aliases while leaving existing photo intact', function (): void {

@@ -13,6 +13,7 @@ use App\Models\Site;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -20,6 +21,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Spatie\MediaLibrary\MediaCollections\Exceptions\FileDoesNotExist;
 use Spatie\MediaLibrary\MediaCollections\Filesystem;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -106,8 +108,9 @@ class ParentRegistrationWorkflow
     public function save(SaveParentRegistrationRequest $request, ParentRegistration $registration): ?AdultAccess
     {
         $stored = [];
+        $disk = config()->string('media-library.disk_name');
         try {
-            return DB::transaction(function () use ($request, $registration, &$stored): ?AdultAccess {
+            return DB::transaction(function () use ($request, $registration, $disk, &$stored): ?AdultAccess {
                 Site::query()->whereKey($registration->site_id)->lockForUpdate()->firstOrFail();
                 $registration = ParentRegistration::query()->lockForUpdate()->findOrFail($registration->id);
                 abort_unless($registration->canEdit() && hash_equals($registration->access_key, (string) $request->query('key')), 410);
@@ -115,8 +118,10 @@ class ParentRegistrationWorkflow
                 $previous = $registration->payload ?? [];
                 $payload = Arr::only($data, ['name', 'also_known_as', 'adults']);
                 $payload['photo_path'] = $previous['photo_path'] ?? null;
+                $payload['photo_disk'] = $previous['photo_disk'] ?? null;
                 if ($request->hasFile('new_photo')) {
-                    $payload['photo_path'] = $request->file('new_photo')->store('registration-photos', 'local');
+                    $payload['photo_path'] = $this->stagePhoto($request->file('new_photo'), $disk, 'new_photo');
+                    $payload['photo_disk'] = $disk;
                     $stored[] = $payload['photo_path'];
                 }
                 $previousAdults = collect($previous['adults'] ?? [])->keyBy('key');
@@ -128,8 +133,10 @@ class ParentRegistrationWorkflow
                     $adult['is_manager'] = $index === 0;
                     $adult['authorised_to_collect'] = true;
                     $adult['photo_path'] = $previousAdults->get($adult['key'])['photo_path'] ?? null;
+                    $adult['photo_disk'] = $previousAdults->get($adult['key'])['photo_disk'] ?? null;
                     if ($request->hasFile("adults.$index.new_photo")) {
-                        $adult['photo_path'] = $request->file("adults.$index.new_photo")->store('registration-photos', 'local');
+                        $adult['photo_path'] = $this->stagePhoto($request->file("adults.$index.new_photo"), $disk, "adults.$index.new_photo");
+                        $adult['photo_disk'] = $disk;
                         $stored[] = $adult['photo_path'];
                     }
                     if ($data['action'] === 'submit' && $adult['document_responsible'] && blank($adult['email'])) {
@@ -181,9 +188,19 @@ class ParentRegistrationWorkflow
                     $referenced[] = $value;
                 }
             });
-            Storage::disk('local')->delete(array_values(array_diff($stored, $referenced)));
+            Storage::disk($disk)->delete(array_values(array_diff($stored, $referenced)));
             throw $exception;
         }
+    }
+
+    private function stagePhoto(UploadedFile $photo, string $disk, string $field): string
+    {
+        $path = $photo->store('registration-photos', $disk);
+        if ($path === false) {
+            throw ValidationException::withMessages([$field => 'The photo could not be saved. Please try uploading it again.']);
+        }
+
+        return $path;
     }
 
     /**
@@ -272,10 +289,14 @@ class ParentRegistrationWorkflow
                 }
                 $payload = $this->submittedPayload($registration);
                 $duplicates = $this->duplicates($registration);
-                $child = $this->resolvePerson(Child::query(), $registration->site, ['name' => $payload['name'], 'date_of_birth' => $registration->child_date_of_birth->toDateString(), 'also_known_as' => $payload['also_known_as'] ?? [], 'photo_path' => $payload['photo_path'] ?? null], $duplicates['child'], $data['child_choice'] ?? null, 'child_choice', $createdMedia);
+                $child = $this->resolvePerson(Child::query(), [
+                    ...Arr::only($payload, ['name', 'photo_path', 'photo_disk']),
+                    'also_known_as' => $payload['also_known_as'] ?? [],
+                    'date_of_birth' => $registration->child_date_of_birth->toDateString(),
+                ], $duplicates['child'], $data['child_choice'] ?? null, 'child_choice', $createdMedia);
                 $child->sites()->syncWithoutDetaching([$registration->site_id => ['is_active' => (bool) $data['is_active'], 'is_approved' => true]]);
                 foreach ($payload['adults'] as $index => $adultData) {
-                    $adult = $this->resolvePerson(Adult::query(), $registration->site, $adultData, $duplicates['adults'][$index], $data['adult_choices'][$index] ?? null, "adult_choices.$index", $createdMedia);
+                    $adult = $this->resolvePerson(Adult::query(), $adultData, $duplicates['adults'][$index], $data['adult_choices'][$index] ?? null, "adult_choices.$index", $createdMedia);
                     $profile = isset($adultData['access_id']) ? AdultAccess::query()->whereKey($adultData['access_id'])->lockForUpdate()->firstOrFail() : null;
                     if ($profile && $profile->adult_id !== null && $profile->adult_id !== $adult->id) {
                         throw ValidationException::withMessages(["adult_choices.$index" => 'This email already has an adult record. Link that record or contact an administrator.']);
@@ -330,7 +351,7 @@ class ParentRegistrationWorkflow
      * @param  list<Media>  $createdMedia
      * @return T
      */
-    private function resolvePerson(Builder $query, Site $site, array $data, array $duplicates, mixed $choice, string $field, array &$createdMedia): Adult|Child
+    private function resolvePerson(Builder $query, array $data, array $duplicates, mixed $choice, string $field, array &$createdMedia): Adult|Child
     {
         $person = $query->getModel();
         if ($duplicates !== [] && $choice === null) {
@@ -346,13 +367,17 @@ class ParentRegistrationWorkflow
         }
         $person->fill(Arr::only($data, $person instanceof Adult ? ['name', 'date_of_birth', 'also_known_as', 'email', 'phone'] : ['name', 'date_of_birth', 'also_known_as']))->save();
         if (filled($data['photo_path'] ?? null)) {
-            $createdMedia[] = $person->addMediaFromDisk($data['photo_path'], 'local')->preservingOriginal()->toMediaCollection('photo', 'local');
+            try {
+                $createdMedia[] = $person->addMediaFromDisk($data['photo_path'], $data['photo_disk'] ?? 'local')->preservingOriginal()->toMediaCollection('photo');
+            } catch (FileDoesNotExist) {
+                throw ValidationException::withMessages([$field => 'The photo for '.$person->name.' is unavailable. Return the registration for corrections and ask for the photo again.']);
+            }
         }
 
         return $person;
     }
 
-    /** @return array{name: string, adults: non-empty-list<array<string, mixed>>, also_known_as?: list<string>, photo_path?: string|null} */
+    /** @return array{name: string, adults: non-empty-list<array<string, mixed>>, also_known_as?: list<string>, photo_path?: string|null, photo_disk?: string|null} */
     private function submittedPayload(ParentRegistration $registration): array
     {
         $payload = $registration->payload;

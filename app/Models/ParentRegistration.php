@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
-/** @property array{name?: string|null, also_known_as?: list<string>, photo_path?: string|null, adults?: list<array<string, mixed>>}|null $payload */
+/** @property array{name?: string|null, also_known_as?: list<string>, photo_path?: string|null, photo_disk?: string|null, adults?: list<array<string, mixed>>}|null $payload */
 #[Fillable(['uuid', 'access_key', 'site_id', 'invited_by', 'adult_access_id', 'child_id', 'child_name', 'child_date_of_birth', 'email', 'status', 'failed_attempts', 'expires_at', 'submitted_at', 'approved_at', 'reviewed_by', 'correction_message', 'payload', 'revision'])]
 class ParentRegistration extends Model
 {

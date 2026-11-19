@@ -80,6 +80,77 @@ test('returned registrations can correct provisional adult DOBs and retain empty
     Mail::assertQueued(ParentActionMail::class);
 });
 
+test('staff can review and serve parent and child photos from a saved draft', function (bool $legacy): void {
+    config(['media-library.disk_name' => $legacy ? 'local' : 's3']);
+    Mail::fake();
+    Storage::fake('s3');
+    $local = Storage::fake('local');
+    Queue::fake([PerformConversionsJob::class]);
+    $site = Site::factory()->create();
+    $staff = parentRegistrationStaff($site);
+    $registration = ParentRegistration::factory()->create(['site_id' => $site->id, 'email' => 'morgan@example.test']);
+    $url = app(ParentRegistrationWorkflow::class)->url($registration);
+    $payload = parentRegistrationPayload();
+    $childPhoto = UploadedFile::fake()->image('child.jpg', 20, 20);
+    $adultPhoto = UploadedFile::fake()->image('adult.jpg', 40, 40);
+    $this->withSession(['parent_registration' => [$registration->uuid => $registration->access_key]])->from($url)
+        ->post($url, [...$payload, 'action' => 'draft', 'new_photo' => $childPhoto, 'adults' => [
+            [...$payload['adults'][0], 'new_photo' => $adultPhoto],
+        ]])->assertRedirect()->assertSessionHasNoErrors();
+
+    if ($legacy) {
+        $draft = $registration->fresh()->payload;
+        unset($draft['photo_disk'], $draft['adults'][0]['photo_disk']);
+        $registration->update(['payload' => $draft]);
+        config(['media-library.disk_name' => 's3']);
+    } else {
+        $local->delete($local->allFiles());
+    }
+    $this->post($url, $payload)->assertRedirect()->assertSessionHasNoErrors();
+    $registration->refresh();
+    $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp]);
+    $parameters = ['site' => $site->slug, 'registration' => $registration->uuid];
+    foreach (['child' => $childPhoto, $payload['adults'][0]['key'] => $adultPhoto] as $slot => $upload) {
+        $this->get(route('staff.registrations.photo', [...$parameters, 'slot' => $slot]))
+            ->assertOk()->assertStreamedContent($upload->getContent());
+    }
+
+    $this->post(route('staff.registrations.update', $parameters), [
+        'action' => 'approve', 'revision' => $registration->revision, 'is_active' => true,
+    ])->assertRedirect()->assertSessionHasNoErrors();
+    $child = Child::query()->sole();
+    $adult = $child->adults()->sole();
+    foreach ([[$child, $childPhoto], [$adult, $adultPhoto]] as [$person, $upload]) {
+        $photo = $person->getMedia('photo')->sole();
+        expect($photo->disk)->toBe('s3');
+        $this->get(route('staff.media.show', ['site' => $site->slug, 'media' => $photo]))
+            ->assertOk()->assertStreamedContent($upload->getContent());
+    }
+})->with(['shared disk across servers' => [false], 'legacy local draft' => [true]]);
+
+test('a missing staged photo can be returned for corrections without approving the registration', function (): void {
+    Mail::fake();
+    Storage::fake('local');
+    $site = Site::factory()->create();
+    $staff = parentRegistrationStaff($site);
+    $registration = ParentRegistration::factory()->create(['site_id' => $site->id, 'email' => 'morgan@example.test']);
+    $url = app(ParentRegistrationWorkflow::class)->url($registration);
+    $this->withSession(['parent_registration' => [$registration->uuid => $registration->access_key]])->from($url)
+        ->post($url, [...parentRegistrationPayload(), 'new_photo' => UploadedFile::fake()->image('child.jpg')])
+        ->assertRedirect()->assertSessionHasNoErrors();
+    $registration->refresh();
+    Storage::disk('local')->delete($registration->payload['photo_path']);
+
+    $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp]);
+    $parameters = ['site' => $site->slug, 'registration' => $registration->uuid];
+    $this->get(route('staff.registrations.photo', [...$parameters, 'slot' => 'child']))->assertNotFound();
+    $this->post(route('staff.registrations.update', $parameters), [
+        'action' => 'approve', 'revision' => $registration->revision, 'is_active' => true,
+    ])->assertInvalid(['child_choice' => 'Return the registration for corrections']);
+    expect($registration->fresh()->status)->toBe('submitted');
+    $this->assertDatabaseCount('children', 0);
+});
+
 test('failed approval removes copied media while preserving the staged photo for retry', function (): void {
     Mail::fake();
     Storage::fake('local');

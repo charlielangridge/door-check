@@ -44,7 +44,9 @@ test('assigned staff register a child with new and existing adults and select th
 });
 
 test('registration saves optional child and adult photos with private access', function (): void {
+    config(['media-library.disk_name' => 's3']);
     Storage::fake('local');
+    Storage::fake('s3');
     Queue::fake([PerformConversionsJob::class]);
     $this->payload['new_photo'] = UploadedFile::fake()->image('child.jpg');
     $this->payload['adults'][0]['new_photo'] = UploadedFile::fake()->image('adult.jpg');
@@ -54,7 +56,8 @@ test('registration saves optional child and adult photos with private access', f
     foreach ([$child, $adult] as $person) {
         $photo = $person->getFirstMedia('logo');
         expect($photo)->not->toBeNull();
-        Storage::disk('local')->assertExists($photo->getPathRelativeToRoot());
+        expect($photo->disk)->toBe('s3');
+        Storage::disk('s3')->assertExists($photo->getPathRelativeToRoot());
         $this->get(route('staff.media.show', ['site' => $this->site->slug, 'media' => $photo]))->assertOk()->assertHeader('Content-Type', 'image/jpeg');
     }
 });

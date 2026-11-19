@@ -22,10 +22,10 @@ class ParentRegistrationController extends Controller
         $verified = $registration->canEdit() && $request->session()->get('parent_registration.'.$registration->uuid) === $registration->access_key;
         $payload = null;
         if ($verified) {
-            $payload = Arr::except($registration->payload ?? [], ['photo_path']);
+            $payload = Arr::except($registration->payload ?? [], ['photo_path', 'photo_disk']);
             $payload['name'] ??= $registration->child_name;
             $payload['date_of_birth'] = $registration->child_date_of_birth->toDateString();
-            $payload['adults'] = array_map(fn (array $adult): array => Arr::except($adult, ['access_id', 'photo_path', 'is_manager', 'authorised_to_collect']), $payload['adults'] ?? [[
+            $payload['adults'] = array_map(fn (array $adult): array => Arr::except($adult, ['access_id', 'photo_path', 'photo_disk', 'is_manager', 'authorised_to_collect']), $payload['adults'] ?? [[
                 'key' => (string) Str::uuid(), 'name' => '', 'date_of_birth' => '', 'phone' => '', 'email' => $registration->email,
                 'relationship' => 'Parent', 'also_known_as' => [], 'document_responsible' => true,
             ]]);
