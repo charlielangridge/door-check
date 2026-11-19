@@ -19,7 +19,7 @@ test('staff do not expire at seven in the evening', function (): void {
     $staff = User::factory()->hasAttached(Site::factory(), [], 'staffSites')->create();
     $staff->assignRole('staff');
 
-    $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->subHours(13)->timestamp])->get(route('staff.board', $staff->staffSites()->first()->uuid))->assertOk();
+    $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->subHours(13)->timestamp])->get(route('staff.board', $staff->staffSites()->first()->slug))->assertOk();
 
     $this->assertAuthenticatedAs($staff);
 });
@@ -29,7 +29,7 @@ test('yesterday staff session requires a new morning login', function (): void {
     $staff = User::factory()->hasAttached(Site::factory(), [], 'staffSites')->create();
     $staff->assignRole('staff');
 
-    $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->subHours(10)->timestamp])->get(route('staff.board', $staff->staffSites()->first()->uuid))->assertRedirectToRoute('login');
+    $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->subHours(10)->timestamp])->get(route('staff.board', $staff->staffSites()->first()->slug))->assertRedirectToRoute('login');
 
     $this->assertGuest();
     $this->assertDatabaseHas('audits', ['event' => 'logout', 'user_id' => $staff->id]);

@@ -22,7 +22,7 @@ test('a private staff channel is restricted to the assigned venue and current da
 });
 
 test('the collecting browser can authorise its own private status channel without a user login', function (): void {
-    $request = CollectionRequest::factory()->createQuietly(['browser_key_hash' => hash('sha256', str_repeat('a', 64))]);
+    $request = CollectionRequest::factory()->for(Site::factory()->create())->createQuietly(['browser_key_hash' => hash('sha256', str_repeat('a', 64))]);
 
     $this->withCookie('collection_browser', str_repeat('a', 64))->withCredentials()
         ->postJson('/broadcasting/auth', ['socket_id' => '1234.1234', 'channel_name' => 'private-collection.'.$request->uuid])
@@ -41,7 +41,7 @@ test('verified admins can receive the selected venues staff updates without a ki
 });
 
 test('another browser cannot authorise a private collection channel', function (): void {
-    $request = CollectionRequest::factory()->createQuietly(['browser_key_hash' => hash('sha256', str_repeat('a', 64))]);
+    $request = CollectionRequest::factory()->for(Site::factory()->create())->createQuietly(['browser_key_hash' => hash('sha256', str_repeat('a', 64))]);
 
     $this->withCookie('collection_browser', str_repeat('b', 64))->withCredentials()
         ->postJson('/broadcasting/auth', ['socket_id' => '1234.1234', 'channel_name' => 'private-collection.'.$request->uuid])

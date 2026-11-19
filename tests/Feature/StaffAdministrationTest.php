@@ -41,7 +41,7 @@ test('an admin can create a working staff account directly within its venue', fu
     $this->assertDatabaseHas('audits', ['auditable_id' => $staff->id, 'event' => 'role_attached_event', 'user_id' => $admin->id]);
     $this->post(route('logout'));
     $this->post('/login', ['email' => $staff->email, 'password' => 'a-staff-password-123'])->assertRedirectToRoute('staff.index');
-    $this->get(route('staff.board', $site->uuid))->assertOk();
+    $this->get(route('staff.board', $site->slug))->assertOk();
 });
 
 test('an admin can assign and unassign existing staff without removing their account', function (): void {
@@ -61,7 +61,7 @@ test('an admin can assign and unassign existing staff without removing their acc
     expect($staff->staffSites()->count())->toBe(0);
     expect($staff->hasRole('staff'))->toBeTrue();
     $this->assertModelExists($staff);
-    $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp])->get(route('staff.board', $site->uuid))->assertNotFound();
+    $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp])->get(route('staff.board', $site->slug))->assertNotFound();
 });
 
 test('staff can join another venue while nonstaff accounts cannot be assigned', function (bool $alreadyAssigned): void {

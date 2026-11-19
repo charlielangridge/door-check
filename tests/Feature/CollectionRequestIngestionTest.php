@@ -6,6 +6,7 @@ use App\Jobs\IngestCollectionRequestJob;
 use App\Jobs\MatchCollectionRequestAdultJob;
 use App\Jobs\MatchCollectionRequestChildJob;
 use App\Models\CollectionRequest;
+use App\Models\Site;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 
@@ -36,7 +37,7 @@ test('rolling back a collection request does not queue ingestion', function (): 
 
 test('ingestion dispatches separate adult and child matching jobs', function (): void {
     Queue::fake([MatchCollectionRequestAdultJob::class, MatchCollectionRequestChildJob::class]);
-    $request = CollectionRequest::factory()->createQuietly();
+    $request = CollectionRequest::factory()->for(Site::factory()->create())->createQuietly();
 
     (new IngestCollectionRequestJob($request))->handle();
 
@@ -45,7 +46,7 @@ test('ingestion dispatches separate adult and child matching jobs', function ():
 });
 
 test('ingestion skips completed requests on redelivery', function (CollectionRequestStatus $status): void {
-    $request = CollectionRequest::factory()->createQuietly();
+    $request = CollectionRequest::factory()->for(Site::factory()->create())->createQuietly();
     $request->forceFill(['status' => $status])->save();
     Queue::fake();
 
@@ -61,7 +62,7 @@ test('ingestion skips completed requests on redelivery', function (CollectionReq
 
 test('ingestion does not redispatch an individually matched person', function (): void {
     Queue::fake([MatchCollectionRequestAdultJob::class, MatchCollectionRequestChildJob::class]);
-    $request = CollectionRequest::factory()->createQuietly();
+    $request = CollectionRequest::factory()->for(Site::factory()->create())->createQuietly();
     $request->forceFill(['status' => CollectionRequestStatus::Processing, 'adult_match_status' => CollectionRequestStatus::Matched])->save();
 
     (new IngestCollectionRequestJob($request))->handle();

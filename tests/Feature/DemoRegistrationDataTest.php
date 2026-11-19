@@ -32,8 +32,12 @@ test('the default database seed restores demo photos and nursery branding from r
 
     $site = Site::query()->where('name', 'Willowbrook Nursery')->sole();
     expect($site->slug)->toBe('willowbrook-nursery');
-    expect($site->staffUsers()->sole()->hasRole('super-admin'))->toBeTrue();
-    $this->actingAs($site->staffUsers()->sole())->withSession(['staff_signed_in_at' => now()->timestamp]);
+    $staff = $site->staffUsers()->orderBy('users.id')->get();
+    expect($staff)->toHaveCount(2);
+    foreach ($staff as $user) {
+        expect($user->hasRole('super-admin'))->toBeTrue();
+    }
+    $this->actingAs($staff->first())->withSession(['staff_signed_in_at' => now()->timestamp]);
 
     $assets = [
         [$site, 'logo', 'sample-logo.png'],

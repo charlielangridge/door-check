@@ -44,7 +44,7 @@ test('manual request creation requires a site and saves it', function (): void {
 });
 
 test('the request site cannot be changed after creation', function (): void {
-    $request = CollectionRequest::factory()->createQuietly();
+    $request = CollectionRequest::factory()->for(Site::factory()->create())->createQuietly();
     $otherSite = Site::factory()->create();
 
     expect(fn () => $request->update(['site_id' => $otherSite->id]))->toThrow(ValidationException::class);
@@ -53,7 +53,7 @@ test('the request site cannot be changed after creation', function (): void {
 });
 
 test('the edit form keeps the original site when its state is tampered with', function (): void {
-    $request = CollectionRequest::factory()->createQuietly();
+    $request = CollectionRequest::factory()->for(Site::factory()->create())->createQuietly();
     $otherSite = Site::factory()->create();
 
     Livewire::test(EditCollectionRequest::class, ['record' => $request->uuid])
@@ -65,8 +65,8 @@ test('the edit form keeps the original site when its state is tampered with', fu
 });
 
 test('staff can view all sites and filter requests by site', function (): void {
-    $first = CollectionRequest::factory()->createQuietly();
-    $second = CollectionRequest::factory()->createQuietly();
+    $first = CollectionRequest::factory()->for(Site::factory()->create())->createQuietly();
+    $second = CollectionRequest::factory()->for(Site::factory()->create())->createQuietly();
 
     Livewire::test(ListCollectionRequests::class)
         ->assertCanSeeTableRecords([$first, $second])
@@ -81,7 +81,7 @@ test('staff can view all sites and filter requests by site', function (): void {
 });
 
 test('bulk site deletion preserves sites with requests while allowing unused sites to be deleted', function (): void {
-    $request = CollectionRequest::factory()->createQuietly();
+    $request = CollectionRequest::factory()->for(Site::factory()->create())->createQuietly();
     $site = $request->site;
     $unused = Site::factory()->create();
 
@@ -95,13 +95,13 @@ test('bulk site deletion preserves sites with requests while allowing unused sit
 });
 
 test('the database also blocks deleting a site that has requests', function (): void {
-    $request = CollectionRequest::factory()->createQuietly();
+    $request = CollectionRequest::factory()->for(Site::factory()->create())->createQuietly();
 
     expect(fn () => $request->site->delete())->toThrow(QueryException::class);
 });
 
 test('membership changes remain visible when the other matching job fails', function (): void {
-    $request = CollectionRequest::factory()->createQuietly([
+    $request = CollectionRequest::factory()->for(Site::factory()->create())->createQuietly([
         'status' => CollectionRequestStatus::MatchingFailed,
         'adult_match_status' => CollectionRequestStatus::NeedsApproval,
         'adult_site_membership_changed' => true,

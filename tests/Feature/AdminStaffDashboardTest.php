@@ -35,8 +35,8 @@ test('an admin opens the selected venue without changing their own staff assignm
     $admin = User::factory()->administrator()->globalCollector()->hasAttached($assignedSite, [], 'staffSites')->create();
     $root = CollectionRequest::factory()->for($selectedSite)->createQuietly();
     CollectionRequest::factory()->for($assignedSite)->createQuietly();
-    $this->actingAs($admin)->withSession(['staff_signed_in_at' => now()->timestamp])->get(route('staff.board', $selectedSite->uuid))->assertOk()->assertHeader('Cache-Control', 'no-store, private')
-        ->assertInertia(fn (Assert $page) => $page->component('Staff/Board')->where('site.id', $selectedSite->id)->where('site.uuid', $selectedSite->uuid)->has('requests', 1)->where('requests.0.uuid', $root->uuid));
+    $this->actingAs($admin)->withSession(['staff_signed_in_at' => now()->timestamp])->get(route('staff.board', $selectedSite->slug))->assertOk()->assertHeader('Cache-Control', 'no-store, private')
+        ->assertInertia(fn (Assert $page) => $page->component('Staff/Board/Show')->where('site.id', $selectedSite->id)->where('site.slug', $selectedSite->slug)->has('requests', 1)->where('requests.0.uuid', $root->uuid));
 
     expect($admin->staffSites()->pluck('sites.id')->all())->toBe([$assignedSite->id]);
     $this->assertDatabaseHas('audits', ['event' => 'staff_board_viewed', 'site_id' => $selectedSite->id, 'user_id' => $admin->id]);
@@ -51,16 +51,16 @@ test('admins without staff roles can review prepare and collect under their own 
     $root = CollectionRequest::factory()->for($site)->createQuietly(['adult_id' => $adult->id, 'requested_child_id' => $child->id]);
     $this->actingAs($admin)->withSession(['staff_signed_in_at' => now()->timestamp]);
 
-    $this->get(route('staff.board', $site->uuid))->assertOk();
+    $this->get(route('staff.board', $site->slug))->assertOk();
     $this->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => Inertia::getVersion(), 'X-InertiaUI-Modal' => 'admin-test-modal'])
-        ->get(route('staff.collections.show', ['site' => $root->site->uuid, 'collectionRequest' => $root]))->assertOk()->assertJsonPath('component', 'Staff/Collection')->assertJsonPath('props.collection.site_uuid', $site->uuid);
+        ->get(route('staff.collections.show', ['site' => $root->site->slug, 'collectionRequest' => $root]))->assertOk()->assertJsonPath('component', 'Staff/Collection/Show')->assertJsonPath('props.collection.site_uuid', $site->uuid);
     $this->flushHeaders();
-    $this->getJson(route('staff.collections.checks', ['site' => $root->site->uuid, 'collectionRequest' => $root], absolute: false).'?adult_id='.$adult->id.'&child_id='.$child->id)->assertOk()->assertJsonPath('relationship', 'parent');
-    $this->getJson(route('staff.collections.candidates', ['site' => $site->uuid, 'collectionRequest' => $root, 'person' => 'child', 'q' => $child->name]))->assertOk();
-    $this->postJson(route('staff.collections.update', ['site' => $root->site->uuid, 'collectionRequest' => $root]), ['action' => 'review', 'revision' => 1, 'identity_confirmed' => true, 'photo_verification_reason' => 'personally_known'])->assertOk();
-    $this->postJson(route('staff.collections.update', ['site' => $root->site->uuid, 'collectionRequest' => $root]), ['action' => 'prepare', 'revision' => $root->fresh()->revision])->assertOk();
-    $this->postJson(route('staff.collections.update', ['site' => $root->site->uuid, 'collectionRequest' => $root]), ['action' => 'collect', 'revision' => $root->fresh()->revision])->assertOk();
-    $this->getJson(route('staff.collections.timeline', ['site' => $root->site->uuid, 'collectionRequest' => $root]))->assertOk();
+    $this->getJson(route('staff.collections.checks', ['site' => $root->site->slug, 'collectionRequest' => $root], absolute: false).'?adult_id='.$adult->id.'&child_id='.$child->id)->assertOk()->assertJsonPath('relationship', 'parent');
+    $this->getJson(route('staff.collections.candidates', ['site' => $site->slug, 'collectionRequest' => $root, 'person' => 'child', 'q' => $child->name]))->assertOk();
+    $this->postJson(route('staff.collections.update', ['site' => $root->site->slug, 'collectionRequest' => $root]), ['action' => 'review', 'revision' => 1, 'identity_confirmed' => true, 'photo_verification_reason' => 'personally_known'])->assertOk();
+    $this->postJson(route('staff.collections.update', ['site' => $root->site->slug, 'collectionRequest' => $root]), ['action' => 'prepare', 'revision' => $root->fresh()->revision])->assertOk();
+    $this->postJson(route('staff.collections.update', ['site' => $root->site->slug, 'collectionRequest' => $root]), ['action' => 'collect', 'revision' => $root->fresh()->revision])->assertOk();
+    $this->getJson(route('staff.collections.timeline', ['site' => $root->site->slug, 'collectionRequest' => $root]))->assertOk();
     expect($root->fresh()->collection_state)->toBe(ChildCollectionState::Collected);
     expect($admin->staffSites()->count())->toBe(0);
     $this->assertDatabaseHas('audits', ['event' => 'collection_collect', 'user_id' => $admin->id, 'site_id' => $site->id, 'collection_request_id' => $root->id]);
@@ -73,10 +73,10 @@ test('staff cannot escape their assigned venues through staff routes', function 
     $root = CollectionRequest::factory()->for($otherSite)->createQuietly();
     $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp]);
 
-    $this->get(route('staff.board', $otherSite->uuid))->assertNotFound();
-    $this->getJson(route('staff.collections.data', ['site' => $root->site->uuid, 'collectionRequest' => $root]))->assertNotFound();
-    $this->postJson(route('staff.collections.update', ['site' => $root->site->uuid, 'collectionRequest' => $root]), ['action' => 'cancel', 'revision' => 1, 'cancellation_reason' => 'duplicate'])->assertNotFound();
-    $this->get(route('staff.board', $staff->staffSites()->first()->uuid))->assertOk();
+    $this->get(route('staff.board', $otherSite->slug))->assertNotFound();
+    $this->getJson(route('staff.collections.data', ['site' => $root->site->slug, 'collectionRequest' => $root]))->assertNotFound();
+    $this->postJson(route('staff.collections.update', ['site' => $root->site->slug, 'collectionRequest' => $root]), ['action' => 'cancel', 'revision' => 1, 'cancellation_reason' => 'duplicate'])->assertNotFound();
+    $this->get(route('staff.board', $staff->staffSites()->first()->slug))->assertOk();
     expect($root->fresh()->collection_state)->toBe(ChildCollectionState::NeedsChecking);
 });
 
@@ -90,13 +90,13 @@ test('global processors receive venue-scoped protected identity photos without m
     $root = CollectionRequest::factory()->for($site)->createQuietly(['requested_child_id' => $child->id]);
     $this->actingAs($admin)->withSession(['staff_signed_in_at' => now()->timestamp]);
 
-    $this->getJson(route('staff.collections.data', ['site' => $root->site->uuid, 'collectionRequest' => $root]))->assertOk()->assertJsonPath('children.0.child.photo', route('staff.media.show', ['site' => $site->uuid, 'media' => $photo]));
-    $this->get(route('staff.media.show', ['site' => $site->uuid, 'media' => $photo]))->assertOk()->assertHeader('Content-Type', 'image/jpeg');
+    $this->getJson(route('staff.collections.data', ['site' => $root->site->slug, 'collectionRequest' => $root]))->assertOk()->assertJsonPath('children.0.child.photo', route('staff.media.show', ['site' => $site->slug, 'media' => $photo]));
+    $this->get(route('staff.media.show', ['site' => $site->slug, 'media' => $photo]))->assertOk()->assertHeader('Content-Type', 'image/jpeg');
 });
 
 test('unauthenticated and unverified admins cannot open staff dashboards', function (): void {
     $site = Site::factory()->create();
-    $this->get(route('staff.board', $site->uuid))->assertRedirectToRoute('login');
+    $this->get(route('staff.board', $site->slug))->assertRedirectToRoute('login');
     $admin = User::factory()->administrator()->globalCollector()->unverified()->create();
-    $this->actingAs($admin)->withSession(['staff_signed_in_at' => now()->timestamp])->get(route('staff.board', $site->uuid))->assertRedirectToRoute('verification.notice');
+    $this->actingAs($admin)->withSession(['staff_signed_in_at' => now()->timestamp])->get(route('staff.board', $site->slug))->assertRedirectToRoute('verification.notice');
 });

@@ -35,7 +35,7 @@ trait SavesPersonPhoto
             if ($path === '') {
                 throw ValidationException::withMessages(['new_photo' => 'The uploaded photo could not be read. Please upload it again.']);
             }
-            $record->addMedia($path)->preservingOriginal()->usingFileName(Str::uuid().'.'.($upload->guessExtension() ?: 'jpg'))->toMediaCollection('logo', 'local');
+            $record->addMedia($path)->preservingOriginal()->usingFileName(Str::uuid().'.'.($upload->guessExtension() ?: 'jpg'))->toMediaCollection('photo');
         }
         $this->data['new_photo'] = [];
         $record->unsetRelation('media');

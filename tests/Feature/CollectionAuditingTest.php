@@ -78,7 +78,9 @@ test('permission assignments are audited and credentials are excluded', function
 });
 
 test('admin photo replacement retains older evidence and private delivery enforces the staff venue', function (): void {
+    config(['media-library.disk_name' => 's3']);
     Storage::fake('local');
+    Storage::fake('s3');
     Queue::fake([PerformConversionsJob::class]);
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     $admin = User::factory()->administrator()->create();
@@ -90,14 +92,16 @@ test('admin photo replacement retains older evidence and private delivery enforc
     Livewire::test(EditAdult::class, ['record' => $adult->getRouteKey()])
         ->fillForm(['new_photo' => UploadedFile::fake()->image('new.jpg')])->call('save')->assertHasNoFormErrors();
 
-    expect($adult->fresh()->getMedia('logo'))->toHaveCount(2);
+    expect($adult->fresh()->getMedia('logo')->sole()->id)->toBe($oldPhoto->id);
     Storage::disk('local')->assertExists($oldPhoto->getPathRelativeToRoot());
-    $newPhoto = $adult->fresh()->getMedia('logo')->last();
+    $newPhoto = $adult->fresh()->getMedia('photo')->sole();
+    expect($newPhoto->disk)->toBe('s3');
+    Storage::disk('s3')->assertExists($newPhoto->getPathRelativeToRoot());
     $this->assertDatabaseHas('audits', ['auditable_type' => AuditedMedia::class, 'auditable_id' => $newPhoto->id, 'event' => 'created', 'user_id' => $admin->id]);
-    Queue::assertPushed(PerformConversionsJob::class, 2);
+    Queue::assertPushed(PerformConversionsJob::class, 1);
     $staff = User::factory()->hasAttached($site, [], 'staffSites')->create();
     $staff->assignRole('staff');
-    $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp])->get(route('staff.media.show', ['site' => $site->uuid, 'media' => $newPhoto]))->assertOk()->assertHeader('Content-Type', 'image/jpeg');
+    $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp])->get(route('staff.media.show', ['site' => $site->slug, 'media' => $newPhoto]))->assertOk()->assertHeader('Content-Type', 'image/jpeg');
     $staff->staffSites()->detach($site);
-    $this->get(route('staff.media.show', ['site' => $site->uuid, 'media' => $newPhoto]))->assertNotFound();
+    $this->get(route('staff.media.show', ['site' => $site->slug, 'media' => $newPhoto]))->assertNotFound();
 });

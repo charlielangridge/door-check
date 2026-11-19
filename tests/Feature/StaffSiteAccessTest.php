@@ -87,20 +87,32 @@ test('the dedicated permission grants all-site processing without admin access a
 });
 
 test('the migration preserves existing staff assignments and grants only super-admin global access', function (): void {
-    $site = Site::factory()->create();
-    $staff = User::factory()->hasAttached($site, [], 'staffSites')->create();
-    $superAdminRole = Role::findOrCreate('super-admin', 'web');
-    $managerRole = Role::findOrCreate('manager', 'web');
-    $migration = require database_path('migrations/2026_10_25_104309_add_multiple_staff_sites_and_global_collection_permission.php');
+    // SQLite needs to toggle foreign keys outside the test transaction when rebuilding users.
+    $defaultConnection = DB::getDefaultConnection();
+    $migrationConnection = 'staff_site_migration';
+    config(["database.connections.$migrationConnection" => [...config('database.connections.sqlite'), 'url' => null, 'database' => ':memory:']]);
+    DB::setDefaultConnection($migrationConnection);
 
-    $migration->down();
-    $this->assertDatabaseHas('users', ['id' => $staff->id, 'staff_site_id' => $site->id]);
-    $migration->up();
+    try {
+        $this->artisan('migrate')->assertSuccessful();
+        $site = Site::factory()->create();
+        $staff = User::factory()->hasAttached($site, [], 'staffSites')->create();
+        $superAdminRole = Role::findOrCreate('super-admin', 'web');
+        $managerRole = Role::findOrCreate('manager', 'web');
+        $migration = require database_path('migrations/2026_10_25_104309_add_multiple_staff_sites_and_global_collection_permission.php');
 
-    $this->assertDatabaseHas('staff_site_user', ['user_id' => $staff->id, 'site_id' => $site->id]);
-    $permissionId = DB::table('permissions')->where('name', 'process collections at any site')->value('id');
-    $this->assertDatabaseHas('role_has_permissions', ['role_id' => $superAdminRole->id, 'permission_id' => $permissionId]);
-    $this->assertDatabaseMissing('role_has_permissions', ['role_id' => $managerRole->id, 'permission_id' => $permissionId]);
+        $migration->down();
+        $this->assertDatabaseHas('users', ['id' => $staff->id, 'staff_site_id' => $site->id]);
+        $migration->up();
+
+        $this->assertDatabaseHas('staff_site_user', ['user_id' => $staff->id, 'site_id' => $site->id]);
+        $permissionId = DB::table('permissions')->where('name', 'process collections at any site')->value('id');
+        $this->assertDatabaseHas('role_has_permissions', ['role_id' => $superAdminRole->id, 'permission_id' => $permissionId]);
+        $this->assertDatabaseMissing('role_has_permissions', ['role_id' => $managerRole->id, 'permission_id' => $permissionId]);
+    } finally {
+        DB::setDefaultConnection($defaultConnection);
+        DB::purge($migrationConnection);
+    }
 });
 
 test('rolling back to single-site accounts refuses to discard multiple venue assignments', function (): void {
