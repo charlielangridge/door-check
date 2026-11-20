@@ -10,10 +10,12 @@ use App\Models\Site;
 use App\Models\User;
 use App\Services\CollectionBoardData;
 use Filament\Facades\Filament;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportFileUploads\FileUploadConfiguration;
 use Livewire\Livewire;
 use Spatie\MediaLibrary\Conversions\Jobs\PerformConversionsJob;
 
@@ -81,6 +83,15 @@ test('admin photo replacement retains older evidence and private delivery enforc
     config(['media-library.disk_name' => 's3']);
     Storage::fake('local');
     Storage::fake('s3');
+    $temporaryDisk = FileUploadConfiguration::disk();
+    $temporaryFiles = Storage::fake($temporaryDisk);
+    Storage::set($temporaryDisk, new class($temporaryFiles->getDriver(), $temporaryFiles->getAdapter(), $temporaryFiles->getConfig()) extends FilesystemAdapter
+    {
+        public function path($path): string
+        {
+            return $path;
+        }
+    });
     Queue::fake([PerformConversionsJob::class]);
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     $admin = User::factory()->administrator()->create();
@@ -89,8 +100,9 @@ test('admin photo replacement retains older evidence and private delivery enforc
     $oldPhoto = $adult->addMedia(UploadedFile::fake()->image('old.jpg'))->toMediaCollection('logo', 'local');
     $this->actingAs($admin);
 
+    $upload = UploadedFile::fake()->image('new.jpg');
     Livewire::test(EditAdult::class, ['record' => $adult->getRouteKey()])
-        ->fillForm(['new_photo' => UploadedFile::fake()->image('new.jpg')])->call('save')->assertHasNoFormErrors();
+        ->fillForm(['new_photo' => $upload])->call('save')->assertHasNoFormErrors();
 
     expect($adult->fresh()->getMedia('logo')->sole()->id)->toBe($oldPhoto->id);
     Storage::disk('local')->assertExists($oldPhoto->getPathRelativeToRoot());
@@ -101,7 +113,8 @@ test('admin photo replacement retains older evidence and private delivery enforc
     Queue::assertPushed(PerformConversionsJob::class, 1);
     $staff = User::factory()->hasAttached($site, [], 'staffSites')->create();
     $staff->assignRole('staff');
-    $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp])->get(route('staff.media.show', ['site' => $site->slug, 'media' => $newPhoto]))->assertOk()->assertHeader('Content-Type', 'image/jpeg');
+    $this->actingAs($staff)->withSession(['staff_signed_in_at' => now()->timestamp])->get(route('staff.media.show', ['site' => $site->slug, 'media' => $newPhoto]))
+        ->assertOk()->assertHeader('Content-Type', 'image/jpeg')->assertStreamedContent($upload->getContent());
     $staff->staffSites()->detach($site);
     $this->get(route('staff.media.show', ['site' => $site->slug, 'media' => $newPhoto]))->assertNotFound();
 });
